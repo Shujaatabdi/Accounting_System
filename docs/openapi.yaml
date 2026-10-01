@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: Accounting System API
+  version: 0.1.0
+  description: Phase 1 foundation for one company. Amounts are decimal strings. See docs/API.md.
+servers:
+  - url: http://localhost:4000/api/v1
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses: { "200": { description: OK } }
+  /auth/login:
+    post:
+      summary: Sign in
+      responses: { "200": { description: Token and user } }
+  /company:
+    get:
+      summary: Read the company profile
+      responses: { "200": { description: Company } }
+    put:
+      summary: Update the company profile
+      responses: { "200": { description: Updated company } }
+  /journals:
+    get:
+      summary: List journals
+      responses: { "200": { description: Page of journals } }
+    post:
+      summary: Create a draft journal
+      responses: { "201": { description: Draft journal } }
+  /journals/{id}/post:
+    post:
+      summary: Post an approved journal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        { "200": { description: Posted journal }, "409": { description: Not approved or period closed } }
+  /journals/{id}/reverse:
+    post:
+      summary: Reverse a posted journal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { "200": { description: Posted reversal } }
+  /reports/trial-balance:
+    get:
+      summary: Posted trial balance through an as-of posting date
+      parameters:
+        - in: query
+          name: asOf
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: format
+          schema: { type: string, enum: [csv] }
+      responses: { "200": { description: Trial balance or CSV } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []
