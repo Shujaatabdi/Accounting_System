@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { addMonths, buildMonthlyPeriods, currentFiscalStart, formatDateInTimeZone } from "../../src/lib/dates";
+import { addMonths, buildMonthlyPeriods, currentFiscalStart, formatDateInTimeZone } from "../../src/shared/dates";
 
 describe("dates", () => {
   it("clamps month ends", () => {

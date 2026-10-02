@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { AppError } from "../../src/lib/errors";
-import { assertBalanced, parseJournalLines } from "../../src/modules/journals/validation";
+import { AppError } from "../../src/shared/errors";
+import { assertBalanced, parseJournalLines } from "../../src/modules/journals/journals.validation";
 
 const line = (debit: string, credit: string) => ({
   accountId: "10000000-0000-4000-8000-000000000001",

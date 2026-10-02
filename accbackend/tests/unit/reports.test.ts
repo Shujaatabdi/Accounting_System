@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalBalanceFor, presentBalanceSheet, presentProfitAndLoss, presentTrialBalance, runningBalances } from "../../src/modules/reports/calculations";
+import { normalBalanceFor, presentBalanceSheet, presentProfitAndLoss, presentTrialBalance, runningBalances } from "../../src/modules/reports/reports.calculations";
 
 describe("report calculations", () => {
   it("maps normal balances from account type", () => {

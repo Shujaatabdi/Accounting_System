@@ -1,12 +1,13 @@
 import type { NextFunction, Request, Response } from "express";
-import { AppError } from "../lib/errors";
+import { logger } from "../config/logger";
+import { AppError } from "../shared/errors";
 
 type PgError = { code?: string; message?: string };
 
 export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction): void {
   const mapped = mapError(error);
   if (!(mapped instanceof AppError)) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: { code: "INTERNAL", message: "Something went wrong." } });
     return;
   }

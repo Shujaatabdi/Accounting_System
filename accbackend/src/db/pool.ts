@@ -1,5 +1,5 @@
-import { Pool, type PoolClient, type QueryResult, type QueryResultRow, types } from "pg";
-import { getConfig } from "../config";
+import { Pool, type QueryResult, type QueryResultRow, types } from "pg";
+import { getConfig } from "../config/env";
 
 // Keep DATE columns as YYYY-MM-DD strings. node-pg's default Date parser
 // shifts the calendar day when the value is later serialized with toISOString().
@@ -26,25 +26,6 @@ export async function query<T extends QueryResultRow = any>(
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
   return getPool().query<T>(text, params);
-}
-
-export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query("BEGIN");
-    const result = await fn(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {
-      // The original error is the one that matters.
-    }
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 
 export async function closePool(): Promise<void> {

@@ -1,11 +1,13 @@
-import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { getConfig } from "./config";
+import { getConfig } from "./config/env";
 import { query } from "./db/pool";
-import { blockUntilPasswordChanged, requireAuth } from "./middleware/auth";
+import { requireAuth } from "./middleware/authenticate";
+import { blockUntilPasswordChanged } from "./middleware/authorize";
 import { errorHandler } from "./middleware/error-handler";
+import { notFound } from "./middleware/not-found";
+import { requestContext } from "./middleware/request-context";
 import { apiRouter, authRouter } from "./routes";
 
 export function createApp() {
@@ -15,11 +17,7 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json({ limit: "1mb" }));
-  app.use((req, res, next) => {
-    req.requestId = randomUUID();
-    res.setHeader("X-Request-Id", req.requestId);
-    next();
-  });
+  app.use(requestContext);
 
   const api = express.Router();
   api.get("/health", (_req, res) => {
@@ -32,11 +30,9 @@ export function createApp() {
     void req;
   });
   api.use("/auth", authRouter);
-  api.use(requireAuth, blockUntilPasswordChanged, apiRouter);
+  api.use(requireAuth, blockUntilPasswordChanged, apiRouter());
   app.use("/api/v1", api);
-  app.use((_req, res) => {
-    res.status(404).json({ error: { code: "NOT_FOUND", message: "Resource not found." } });
-  });
+  app.use(notFound);
   app.use(errorHandler);
   return app;
 }

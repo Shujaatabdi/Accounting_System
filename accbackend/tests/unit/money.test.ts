@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { decimal, money } from "../../src/lib/money";
+import { decimal, money } from "../../src/shared/money";
 
 describe("money", () => {
   it("adds decimal values without binary floating-point error", () => {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { AuthProvider } from "@/lib/auth";
-import "./globals.css";
+import { Providers } from "./providers";
+import "@/styles/globals.css";
 
 export const metadata: Metadata = {
   title: "Accounting System",
@@ -11,7 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
