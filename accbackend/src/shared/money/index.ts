@@ -6,8 +6,8 @@ export function decimal(value: string | Decimal): Decimal {
   return value instanceof Decimal ? value : new Decimal(value);
 }
 
-export function money(value: Decimal): string {
-  return value.toFixed(4);
+export function money(value: Decimal | string): string {
+  return decimal(value).toFixed(4);
 }
 
 export function isZero(value: Decimal): boolean {

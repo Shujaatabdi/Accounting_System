@@ -11,10 +11,70 @@ export {
   listNumberingController,
   listTaxCodesController,
   retireTaxCodeController,
+  getSalesSettingsController,
   updateAccountingProfileController,
   updateCompanyController,
   updateNumberingController,
+  updateSalesSettingsController,
 } from "./company.controller";
+export {
+  createCustomerController,
+  customerBalanceController,
+  customerHistoryController,
+  getCustomerController,
+  listCustomersController,
+  saveOpeningDetailsController,
+  updateCustomerController,
+} from "./customers.controller";
+export {
+  createCategoryController,
+  createProductController,
+  createUnitController,
+  getProductController,
+  listCategoriesController,
+  listProductsController,
+  listUnitsController,
+  updateCategoryController,
+  updateProductController,
+} from "./products.controller";
+export {
+  approveInvoiceController,
+  createInvoiceController,
+  getInvoiceController,
+  listInvoicesController,
+  postInvoiceController,
+  rejectInvoiceController,
+  reverseInvoiceController,
+  submitInvoiceController,
+  updateInvoiceController,
+  voidInvoiceController,
+} from "./invoices.controller";
+export {
+  allocateReceiptController,
+  approveReceiptController,
+  createReceiptController,
+  getReceiptController,
+  listReceiptsController,
+  postReceiptController,
+  rejectReceiptController,
+  reverseReceiptController,
+  submitReceiptController,
+  unallocateReceiptController,
+  updateReceiptController,
+  voidReceiptController,
+} from "./receipts.controller";
+export {
+  approveReturnController,
+  createReturnController,
+  getReturnController,
+  listReturnsController,
+  postReturnController,
+  rejectReturnController,
+  reverseReturnController,
+  submitReturnController,
+  updateReturnController,
+  voidReturnController,
+} from "./customer-returns.controller";
 export { createUserController, listAuditController, listUsersController, updateUserController } from "./users.controller";
 export { createRoleController, listPermissionsController, listRolesController, updateRoleController } from "./roles.controller";
 export { createBranchController, listBranchesController, updateBranchController } from "./branches.controller";
@@ -43,7 +103,10 @@ export {
   balanceSheetController,
   dashboardController,
   generalLedgerController,
+  customerStatementController,
   journalReportController,
   profitAndLossController,
+  receivablesAgingController,
+  salesReportController,
   trialBalanceController,
 } from "./reports.controller";

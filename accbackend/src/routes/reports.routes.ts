@@ -3,8 +3,11 @@ import {
   balanceSheetController,
   dashboardController,
   generalLedgerController,
+  customerStatementController,
   journalReportController,
   profitAndLossController,
+  receivablesAgingController,
+  salesReportController,
   trialBalanceController,
 } from "../controllers/reports.controller";
 import { requirePermission } from "../middleware/authorize";
@@ -16,3 +19,6 @@ reportsRouter.get("/reports/profit-and-loss", requirePermission("reports.view"),
 reportsRouter.get("/reports/balance-sheet", requirePermission("reports.view"), balanceSheetController);
 reportsRouter.get("/reports/general-ledger", requirePermission("reports.view"), generalLedgerController);
 reportsRouter.get("/reports/journals", requirePermission("reports.view"), journalReportController);
+reportsRouter.get("/reports/receivables-aging", requirePermission("reports.view"), receivablesAgingController);
+reportsRouter.get("/reports/customer-statement", requirePermission("reports.view"), customerStatementController);
+reportsRouter.get("/reports/sales", requirePermission("reports.view"), salesReportController);

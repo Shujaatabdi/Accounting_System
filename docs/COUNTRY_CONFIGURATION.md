@@ -10,7 +10,7 @@ The installation stores a country code, tax identifier, currency name and symbol
 
 ## Tax codes
 
-Tax codes store a percentage rate, optional sales and purchase accounts, and an effective range. Overlapping active ranges for the same code are rejected. Changing a rate means retiring the current row and creating a new one. This phase does not calculate tax on invoices or bills, and it does not ship a rate for any country.
+Tax codes store a percentage rate, optional sales and purchase accounts, and an effective range. Overlapping active ranges for the same code are rejected. Changing a rate means retiring the current row and creating a new one. Sales invoices and customer returns calculate tax from the company tax-pricing mode and the tax code selected on the line. The country code does not choose a rate or a tax regime. Bills are not calculated yet. The software does not ship a rate for any country.
 
 ## What must not be hard-coded
 

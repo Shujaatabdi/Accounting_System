@@ -87,7 +87,7 @@ Posting a journal is one transaction:
 
 Database triggers in `001_foundation.sql` repeat the immutability, balance, snapshot, and approved-status checks. A reversal is a new posted journal. It swaps debit and credit, copies the snapshots, and sets the transaction-local `acc.allow_system_post` flag so the trigger accepts the system post. The original journal stays posted and records `reversed_by_entry_id`.
 
-Future invoices, bills, and returns must call the ledger service inside their own transaction. They must not duplicate balance, period, snapshot, or immutability rules.
+Invoices, receipts, receipt allocations, and customer returns call the ledger service inside their own transaction. Bills must do the same. They must not duplicate balance, period, snapshot, or immutability rules.
 
 Money is `numeric` in PostgreSQL and decimal strings in the API. The application uses `decimal.js`. Date columns stay `YYYY-MM-DD` strings.
 
@@ -134,9 +134,9 @@ Shared UI primitives live in `components/`. There is no Metronic code in this re
 
 ## What is implemented
 
-Phase 1 is implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, and balance sheet.
+Phase 1 and Phase 2 are implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, balance sheet, customers, products, sales invoices, receipts, customer returns, and receivables reports.
 
-Not implemented, and not started by this structure: customers, suppliers, sales, purchasing, returns, inventory quantities, costing, and manufacturing. Costing method is undecided.
+Not implemented: suppliers, purchasing, inventory quantities, inventory valuation, cost of goods sold, costing, and manufacturing. Costing method is undecided.
 
 ## Deployment
 

@@ -12,6 +12,9 @@ const TITLES: Record<string, string> = {
   "balance-sheet": "Balance sheet",
   "general-ledger": "General ledger",
   journals: "Journal report",
+  "receivables-aging": "Receivables aging",
+  "customer-statement": "Customer statement",
+  sales: "Sales",
 };
 
 export function ReportScreen({ slug }: { slug: string }) {
@@ -20,27 +23,36 @@ export function ReportScreen({ slug }: { slug: string }) {
   const [from, setFrom] = useState(`${todayIso().slice(0, 4)}-01-01`);
   const [to, setTo] = useState(todayIso());
   const [accountId, setAccountId] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [customers, setCustomers] = useState<Array<{ id: string; code: string; displayName: string }>>([]);
   const [accounts, setAccounts] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (slug !== "general-ledger") return;
-    api<{ data: Array<{ id: string; code: string; name: string }> }>("/api/v1/accounts?postable=true&pageSize=100")
-      .then((result) => setAccounts(result.data))
-      .catch((caught: Error) => setError(caught.message));
+    if (slug === "general-ledger") {
+      api<{ data: Array<{ id: string; code: string; name: string }> }>("/api/v1/accounts?postable=true&pageSize=100")
+        .then((result) => setAccounts(result.data))
+        .catch((caught: Error) => setError(caught.message));
+    }
+    if (slug === "customer-statement") {
+      api<{ data: Array<{ id: string; code: string; displayName: string }> }>("/api/v1/customers?pageSize=100")
+        .then((result) => setCustomers(result.data))
+        .catch((caught: Error) => setError(caught.message));
+    }
   }, [slug]);
 
   async function run(event?: FormEvent) {
     event?.preventDefault();
     setError("");
     const query = new URLSearchParams();
-    if (slug === "trial-balance" || slug === "balance-sheet") query.set("asOf", asOf);
+    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging") query.set("asOf", asOf);
     else {
       query.set("from", from);
       query.set("to", to);
     }
     if (slug === "general-ledger") query.set("accountId", accountId);
+    if (slug === "customer-statement") query.set("customerId", customerId);
     try {
       setReport(await api(`/api/v1/reports/${slug}?${query.toString()}`));
     } catch (caught) {
@@ -54,7 +66,7 @@ export function ReportScreen({ slug }: { slug: string }) {
       <h1 className="page-title">{TITLES[slug] ?? "Report"}</h1>
       <p className="lede">These reports include posted journals only. Dates filter the posting date, not the transaction date. Print this page to save a PDF. Spreadsheet export is CSV.</p>
       <form className="card row no-print" onSubmit={run}>
-        {slug === "trial-balance" || slug === "balance-sheet" ? (
+        {slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging" ? (
           <label className="field"><span>As of</span><input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></label>
         ) : (
           <>
@@ -70,6 +82,14 @@ export function ReportScreen({ slug }: { slug: string }) {
             </select>
           </label>
         ) : null}
+        {slug === "customer-statement" ? (
+          <label className="field"><span>Customer</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
+              <option value="">Select</option>
+              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.code} {customer.displayName}</option>)}
+            </select>
+          </label>
+        ) : null}
         <button className="btn" type="submit">Run</button>
         {report && can(auth.user, "reports.export") ? <button className="btn quiet" type="button" onClick={() => downloadCsv(`/api/v1/reports/${slug}?${currentQuery()}&format=csv`, `${slug}.csv`)}>Export CSV</button> : null}
         <button className="btn quiet" type="button" onClick={() => window.print()}>Print / PDF</button>
@@ -81,12 +101,13 @@ export function ReportScreen({ slug }: { slug: string }) {
 
   function currentQuery() {
     const query = new URLSearchParams();
-    if (slug === "trial-balance" || slug === "balance-sheet") query.set("asOf", asOf);
+    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging") query.set("asOf", asOf);
     else {
       query.set("from", from);
       query.set("to", to);
     }
     if (accountId) query.set("accountId", accountId);
+    if (customerId) query.set("customerId", customerId);
     return query.toString();
   }
 }
@@ -136,6 +157,19 @@ function ReportBody({ slug, report, places }: { slug: string; report: Record<str
         <AmountTable rows={lines.map((line) => [line.entryNumber, line.entryDate, line.postingDate, line.description ?? "", money(line.debit, places), money(line.credit, places), money(line.runningBalance, places)])} headers={["Entry", "Transaction date", "Posting date", "Description", "Debit", "Credit", "Balance"]} />
       </div>
     );
+  }
+  if (slug === "receivables-aging") {
+    const rows = report.invoices as Array<{ invoiceNumber: string; customerName: string; dueDate: string; openAmount: string; bucket: string }>;
+    const totals = report.totals as { open: string };
+    return <div className="card"><p>Open {money(totals.open, places)}. Unapplied advances are not included.</p><AmountTable rows={rows.map((row) => [row.invoiceNumber, row.customerName, row.dueDate, money(row.openAmount, places), row.bucket])} headers={["Invoice", "Customer", "Due", "Open", "Bucket"]} /></div>;
+  }
+  if (slug === "customer-statement") {
+    const rows = report.lines as Array<{ kind: string; number: string; date: string; amount: string; balance: string }>;
+    return <div className="card"><p>Opening {money(String(report.openingBalance), places)} · Closing {money(String(report.closingBalance), places)}</p><AmountTable rows={rows.map((row) => [row.kind, row.number, row.date, money(row.amount, places), money(row.balance, places)])} headers={["Kind", "Number", "Date", "Amount", "Balance"]} /></div>;
+  }
+  if (slug === "sales") {
+    const rows = report.rows as Array<{ kind: string; number: string; date: string; customerName: string; taxable: string; tax: string; total: string }>;
+    return <div className="card"><p>Total {money(String(report.total), places)}</p><AmountTable rows={rows.map((row) => [row.kind, row.number, row.date, row.customerName, money(row.taxable, places), money(row.tax, places), money(row.total, places)])} headers={["Kind", "Number", "Date", "Customer", "Taxable", "Tax", "Total"]} /></div>;
   }
   const rows = report.rows as Array<{ entryNumber: string; entryDate: string; postingDate: string; accountCode: string; debit: string; credit: string; description: string }>;
   return <div className="card"><AmountTable rows={rows.map((row) => [row.entryNumber, row.entryDate, row.postingDate, row.accountCode, money(row.debit, places), money(row.credit, places)])} headers={["Entry", "Transaction date", "Posting date", "Account", "Debit", "Credit"]} /></div>;

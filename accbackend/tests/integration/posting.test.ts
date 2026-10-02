@@ -304,3 +304,112 @@ test("posted journals balance, stay immutable, and reverse without changing the 
   assert.equal(after.body.balances, true);
   assert.equal(after.body.totalDebit, "0.0000");
 });
+
+test("sales invoices, partial returns, and receipts stay within the receivable control account", async () => {
+  const auth = { Authorization: `Bearer ${token}` };
+  const accounts = await request(app).get("/api/v1/accounts?postable=true&pageSize=100").set(auth);
+  const byCode = (code: string) => accounts.body.data.find((row: { code: string }) => row.code === code);
+  const sales = byCode("4100");
+  const tax = byCode("2200");
+  const receivable = byCode("1200");
+  const cash = byCode("1110");
+  assert.ok(sales && tax && receivable && cash);
+  const years = await request(app).get("/api/v1/fiscal-years").set(auth);
+  const postingDate = years.body.data[0].periods[0].startDate as string;
+  const branches = await request(app).get("/api/v1/branches?pageSize=10").set(auth);
+  const branchId = branches.body.data[0].id as string;
+
+  const blocked = await request(app).post("/api/v1/journals").set(auth).send({
+    entryDate: postingDate,
+    description: "Manual receivable",
+    sourceType: "manual",
+    lines: [
+      { accountId: receivable.id, debit: "5.00", credit: "0.00" },
+      { accountId: cash.id, debit: "0.00", credit: "5.00" },
+    ],
+  });
+  assert.equal(blocked.status, 409);
+
+  const taxCode = await request(app).post("/api/v1/tax-codes").set(auth).send({
+    code: "VAT10", name: "VAT 10", ratePercent: "10", salesAccountId: tax.id, effectiveFrom: postingDate,
+  });
+  assert.equal(taxCode.status, 201);
+  const customer = await request(app).post("/api/v1/customers").set(auth).send({
+    code: "C001", legalName: "Northwind", displayName: "Northwind", paymentTermsDays: 30,
+    creditLimit: "1000.00", isActive: true, addresses: [], contacts: [],
+  });
+  assert.equal(customer.status, 201);
+  const product = await request(app).post("/api/v1/products").set(auth).send({
+    sku: "SVC-1", name: "Service", itemType: "service", salesPrice: "10.00", taxCodeId: taxCode.body.id,
+    salesAccountId: sales.id, returnAccountId: sales.id, isActive: true, units: [],
+  });
+  assert.equal(product.status, 201);
+
+  const invoice = await request(app).post("/api/v1/invoices").set(auth).send({
+    customerId: customer.body.id, branchId, invoiceDate: postingDate,
+    lines: [{ productId: product.body.id, quantity: "3", unitPrice: "10.00", taxCodeId: taxCode.body.id }],
+  });
+  assert.equal(invoice.status, 201, JSON.stringify(invoice.body));
+  assert.equal(invoice.body.total, "33.0000");
+  const invoiceId = invoice.body.id as string;
+  const lineId = invoice.body.lines[0].id as string;
+  assert.equal((await request(app).post(`/api/v1/invoices/${invoiceId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/invoices/${invoiceId}/approve`).set(auth)).status, 200);
+  const posted = await request(app).post(`/api/v1/invoices/${invoiceId}/post`).set(auth).send({});
+  assert.equal(posted.status, 200, JSON.stringify(posted.body));
+
+  const earlyReceipt = await request(app).post("/api/v1/receipts").set(auth).send({
+    customerId: customer.body.id, branchId, receiptDate: postingDate, cashAccountId: cash.id, amount: "10.00", allocations: [],
+  });
+  assert.equal(earlyReceipt.status, 409);
+
+  const partial = await request(app).post("/api/v1/customer-returns").set(auth).send({
+    customerId: customer.body.id, branchId, returnDate: postingDate, reason: "Partial", unreferenced: false,
+    lines: [{ invoiceLineId: lineId, quantity: "1", disposition: "restockable" }],
+  });
+  assert.equal(partial.status, 201, JSON.stringify(partial.body));
+  assert.equal(partial.body.total, "11.0000");
+  const returnId = partial.body.id as string;
+  assert.equal((await request(app).post(`/api/v1/customer-returns/${returnId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/customer-returns/${returnId}/approve`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/customer-returns/${returnId}/post`).set(auth)).status, 200);
+
+  const tooMuch = await request(app).post("/api/v1/customer-returns").set(auth).send({
+    customerId: customer.body.id, branchId, returnDate: postingDate, reason: "Too much", unreferenced: false,
+    lines: [{ invoiceLineId: lineId, quantity: "3", disposition: "damaged" }],
+  });
+  assert.equal(tooMuch.status, 409);
+
+  const blockedReverse = await request(app).post(`/api/v1/invoices/${invoiceId}/reverse`).set(auth).send({ reason: "Too soon" });
+  assert.equal(blockedReverse.status, 409);
+
+  const aging = await request(app).get(`/api/v1/reports/receivables-aging?asOf=${postingDate}`).set(auth);
+  assert.equal(aging.status, 200, JSON.stringify(aging.body));
+  assert.equal(aging.body.totals.open, "22.0000");
+
+  const advances = await request(app).post("/api/v1/accounts").set(auth).send({
+    code: "2300", name: "Customer advances", accountType: "liability", isHeader: false, isControl: false, isActive: true,
+  });
+  assert.equal(advances.status, 201, JSON.stringify(advances.body));
+  const settings = await request(app).put("/api/v1/sales-settings").set(auth).send({
+    taxPricingMode: "exclusive", unappliedReceiptTreatment: "customer_advance",
+    arControlAccountId: receivable.id, customerAdvanceAccountId: advances.body.id,
+  });
+  assert.equal(settings.status, 200, JSON.stringify(settings.body));
+
+  const receipt = await request(app).post("/api/v1/receipts").set(auth).send({
+    customerId: customer.body.id, branchId, receiptDate: postingDate, cashAccountId: cash.id, amount: "22.00", allocations: [],
+  });
+  assert.equal(receipt.status, 201, JSON.stringify(receipt.body));
+  const receiptId = receipt.body.id as string;
+  assert.equal((await request(app).post(`/api/v1/receipts/${receiptId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/receipts/${receiptId}/approve`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/receipts/${receiptId}/post`).set(auth)).status, 200);
+  const allocated = await request(app).post(`/api/v1/receipts/${receiptId}/allocations`).set(auth).send({ invoiceId, amount: "22.00" });
+  assert.equal(allocated.status, 200, JSON.stringify(allocated.body));
+  const stillBlocked = await request(app).post(`/api/v1/invoices/${invoiceId}/reverse`).set(auth).send({ reason: "Still allocated" });
+  assert.equal(stillBlocked.status, 409);
+  const closed = await request(app).get(`/api/v1/reports/receivables-aging?asOf=${postingDate}`).set(auth);
+  assert.equal(closed.status, 200, JSON.stringify(closed.body));
+  assert.equal(closed.body.totals.open, "0.0000");
+});

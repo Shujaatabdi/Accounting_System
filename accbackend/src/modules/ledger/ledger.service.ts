@@ -1,11 +1,12 @@
 import type { Sql } from "../../db/pool";
 import { AppError } from "../../shared/errors";
-import { one } from "../../shared/errors";
 import { selectCurrencyScale } from "../company/company.repository";
 import { assertBalanced, parseJournalLines, type ParsedLine } from "../journals/journals.validation";
 import {
   allowSystemPost,
   insertReversalLine,
+  insertSystemJournal,
+  insertSystemLine,
   lockLines,
   lockOpenPeriod,
   lockPostableAccounts,
@@ -14,6 +15,8 @@ import {
   snapshotLineAccounts,
   type LineRow,
 } from "./ledger.repository";
+import { decimal, money } from "../../shared/money";
+import { one } from "../../shared/errors";
 
 export async function lockEntryLines(db: Sql, journalId: string) {
   return (await lockLines(db, journalId)).rows;
@@ -89,6 +92,49 @@ export async function assertAccountsAndBranches(db: Sql, lines: ParsedLine[]) {
 async function currencyScale(db: Sql) {
   const company = one((await selectCurrencyScale(db)).rows);
   return company.currency_decimal_places;
+}
+
+export async function postSystemJournal(
+  db: Sql,
+  input: {
+    entryNumber: string;
+    entryDate: string;
+    description: string;
+    reference: string | null;
+    sourceType: "invoice" | "receipt" | "receipt_allocation" | "customer_return";
+    sourceId: string;
+    createdBy: string;
+    lines: Array<{
+      accountId: string;
+      branchId: string | null;
+      description: string | null;
+      debit: string;
+      credit: string;
+    }>;
+  },
+) {
+  const postedLines = input.lines.filter((line) => decimalPositive(line.debit) || decimalPositive(line.credit));
+  const inserted = one((await insertSystemJournal(db, [
+    input.entryNumber, input.entryDate, input.description, input.reference,
+    input.sourceType, input.sourceId, input.createdBy,
+  ])).rows);
+  for (const [index, line] of postedLines.entries()) {
+    await insertSystemLine(db, [
+      inserted.id, index + 1, line.accountId, line.branchId, line.description, money(line.debit), money(line.credit),
+    ]);
+  }
+  await preparePosting(db, inserted.id);
+  await postPreparedJournal(db, {
+    journalId: inserted.id,
+    postingDate: input.entryDate,
+    postedBy: input.createdBy,
+    system: true,
+  });
+  return inserted.id;
+}
+
+function decimalPositive(value: string) {
+  return decimal(value).gt(0);
 }
 
 function toParsed(lines: LineRow[], scale: number): ParsedLine[] {

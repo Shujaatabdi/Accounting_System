@@ -24,9 +24,9 @@ Limitations inside this phase:
 - The logo is a URL, not an uploaded file.
 - Control accounts can still be used on manual journals because there is no subledger yet.
 
-## Phase 2 — Customers and sales — not started
+## Phase 2 — Customers and sales — implemented
 
-Customers, products and services, invoices, receipts, allocations, statements, customer returns with product-level account adjustments, and receivables aging.
+Customers, products and services, invoices, receipts, allocations, statements, customer returns, and receivables aging. Posted documents call the ledger. Inventory quantity, inventory value, and cost of goods sold are not posted. Supplier master data is still Phase 3.
 
 ## Phase 3 — Suppliers and purchasing — not started
 
@@ -46,4 +46,4 @@ Country tax and statutory reports only after a country is selected and reviewed.
 
 ## Suggested order after review
 
-Finish Phase 1 review, then Phase 2. Each phase should migrate, stay runnable, and update these docs before the next one starts.
+Phase 2 is implemented and waiting for review. Do not start Phase 3 until that review is accepted.

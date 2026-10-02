@@ -92,3 +92,21 @@ export async function insertReversalLine(
 export async function markReversedBy(db: Sql, originalId: string, reversalId: string) {
   await db.query("UPDATE journal_entries SET reversed_by_entry_id = $2 WHERE id = $1", [originalId, reversalId]);
 }
+
+export async function insertSystemJournal(db: Sql, values: unknown[]) {
+  return db.query<{ id: string }>(
+    `INSERT INTO journal_entries (
+       entry_number, entry_date, status, description, reference, source_type, source_id, created_by
+     ) VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7)
+     RETURNING id`,
+    values,
+  );
+}
+
+export async function insertSystemLine(db: Sql, values: unknown[]) {
+  await db.query(
+    `INSERT INTO journal_lines (journal_entry_id, line_no, account_id, branch_id, description, debit, credit)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    values,
+  );
+}

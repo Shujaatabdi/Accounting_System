@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { actorFrom } from "../middleware/authenticate";
-import { balanceSheet, generalLedger, getDashboard, journalReport, profitAndLoss, trialBalance } from "../modules/reports/reports.service";
-import { reportQuery } from "../modules/reports/reports.schemas";
+import { balanceSheet, customerStatement, generalLedger, getDashboard, journalReport, profitAndLoss, receivablesAging, salesReport, trialBalance } from "../modules/reports/reports.service";
+import { receivablesQuery, reportQuery, statementQuery } from "../modules/reports/reports.schemas";
 import { AppError } from "../shared/errors";
 import { parseQuery, wrap } from "../shared/http";
 import { toCsv } from "../shared/http/csv";
@@ -47,6 +47,33 @@ export const generalLedgerController = wrap(async (req, res) => {
   if (!wantsCsv(req)) return res.json(report);
   sendCsv(res, "general-ledger.csv", ["Entry", "Transaction date", "Posting date", "Description", "Debit", "Credit", "Balance"], report.lines.map((line) => [
     line.entryNumber, line.entryDate, line.postingDate, line.description ?? "", line.debit, line.credit, line.runningBalance,
+  ]));
+});
+
+export const receivablesAgingController = wrap(async (req, res) => {
+  const filters = parseQuery(receivablesQuery, req.query);
+  const report = await receivablesAging(actorFrom(req).actor, filters);
+  if (!wantsCsv(req)) return res.json(report);
+  sendCsv(res, "receivables-aging.csv", ["Invoice", "Customer", "Due", "Open", "Bucket"], report.invoices.map((row) => [
+    row.invoiceNumber, row.customerName, row.dueDate, row.openAmount, row.bucket,
+  ]));
+});
+
+export const customerStatementController = wrap(async (req, res) => {
+  const filters = parseQuery(statementQuery, req.query);
+  const report = await customerStatement(actorFrom(req).actor, filters);
+  if (!wantsCsv(req)) return res.json(report);
+  sendCsv(res, "customer-statement.csv", ["Kind", "Number", "Date", "Amount", "Balance"], report.lines.map((row) => [
+    row.kind, row.number, row.date, row.amount, row.balance,
+  ]));
+});
+
+export const salesReportController = wrap(async (req, res) => {
+  const filters = parseQuery(reportQuery, req.query);
+  const report = await salesReport(actorFrom(req).actor, filters);
+  if (!wantsCsv(req)) return res.json(report);
+  sendCsv(res, "sales.csv", ["Kind", "Number", "Date", "Customer", "Taxable", "Tax", "Total"], report.rows.map((row) => [
+    row.kind, row.number, row.date, row.customerName, row.taxable, row.tax, row.total,
   ]));
 });
 

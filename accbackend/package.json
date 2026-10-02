@@ -12,8 +12,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
     "db:embedded": "tsx src/db/embedded.ts",
-    "test": "tsx --test tests/unit/money.test.ts tests/unit/dates.test.ts tests/unit/journals.test.ts tests/unit/reports.test.ts",
-    "test:integration": "tsx --test --test-timeout 180000 tests/integration/posting.test.ts"
+    "test": "tsx --test tests/unit/money.test.ts tests/unit/dates.test.ts tests/unit/journals.test.ts tests/unit/reports.test.ts tests/unit/returns.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 --test-timeout 180000 tests/integration/posting.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

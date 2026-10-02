@@ -7,6 +7,7 @@ import { decimal, money } from "../../shared/money";
 import { pageResult, type Page } from "../../shared/http/pagination";
 import type { AuthUser, RequestMeta } from "../auth/auth.types";
 import { selectCurrencyScale, selectRequireDistinctApprover, selectTimezone } from "../company/company.repository";
+import { selectSalesSettings } from "../company/sales.repository";
 import { allocateNumber } from "../company/numbering.service";
 import {
   allowSystemPost,
@@ -32,6 +33,7 @@ import {
   markDraft,
   markSubmitted,
   markVoid,
+  openingArUnbalanced,
   selectJournal,
   selectJournals,
   selectLines,
@@ -86,6 +88,7 @@ export async function createJournal(input: JournalInput, meta: RequestMeta) {
   assertLineBranches(meta.actor, lines);
   return withTransaction(async (client) => {
     await assertAccountsAndBranches(client, lines);
+    await assertManualArAllowed(client, input.sourceType ?? "manual", lines);
     const entryNumber = await allocateNumber(client, "journal");
     const row = one(
       (
@@ -114,6 +117,7 @@ export async function updateJournal(id: string, input: JournalInput, meta: Reque
     const current = await loadVisible(client, id, meta.actor, true);
     if (current.status !== "draft") throw new AppError(409, "NOT_DRAFT", "Only a draft journal can be edited.");
     await assertAccountsAndBranches(client, lines);
+    await assertManualArAllowed(client, input.sourceType ?? "manual", lines);
     await updateDraft(client, id, [input.entryDate, input.description.trim(), blank(input.reference), input.sourceType ?? "manual"]);
     await deleteLines(client, id);
     await insertLines(client, id, lines);
@@ -126,6 +130,7 @@ export async function updateJournal(id: string, input: JournalInput, meta: Reque
 export async function submitJournal(id: string, meta: RequestMeta) {
   return transition(id, meta, async (client, current) => {
     if (current.status !== "draft") throw new AppError(409, "JOURNAL_STATE", "Only a draft can be submitted.");
+    await assertOpeningArReady(client, current.sourceType, id);
     await preparePosting(client, id);
     await markSubmitted(client, id, meta.actor.id);
     return "journals.submit";
@@ -148,6 +153,7 @@ export async function approveJournal(id: string, meta: RequestMeta) {
     if (company.require_distinct_approver && current.submittedBy === meta.actor.id) {
       throw new AppError(403, "SEPARATION", "A different person must approve this journal.");
     }
+    await assertOpeningArReady(client, current.sourceType, id);
     await preparePosting(client, id);
     await markApproved(client, id, meta.actor.id);
     return "journals.approve";
@@ -159,6 +165,7 @@ export async function postJournal(id: string, postingDate: string | undefined, m
     if (current.status !== "approved") throw new AppError(409, "JOURNAL_STATE", "Only an approved journal can be posted.");
     const date = postingDate ?? current.entryDate;
     assertIsoDate(date);
+    await assertOpeningArReady(client, current.sourceType, id);
     await preparePosting(client, id);
     await postPreparedJournal(client, { journalId: id, postingDate: date, postedBy: meta.actor.id, system: false });
     return "journals.post";
@@ -181,6 +188,9 @@ export async function reverseJournal(id: string, input: { postingDate?: string; 
     const original = await loadVisible(client, id, meta.actor, true);
     if (original.status !== "posted" || original.reversedByEntryId) {
       throw new AppError(409, "JOURNAL_STATE", "Only a posted journal that has not already been reversed can be reversed.");
+    }
+    if (["invoice", "receipt", "receipt_allocation", "customer_return"].includes(original.sourceType)) {
+      throw new AppError(409, "DOCUMENT_REVERSAL", "Reverse the source document. Its journal cannot be reversed on its own.");
     }
     const company = one((await selectTimezone(client)).rows);
     const postingDate = input.postingDate ?? todayInTimeZone(company.timezone);
@@ -245,6 +255,23 @@ async function insertLines(db: Sql, journalId: string, lines: ParsedLine[]) {
 async function currencyScale(db: Sql = { query }) {
   const company = one((await selectCurrencyScale(db)).rows);
   return company.currency_decimal_places;
+}
+
+async function assertManualArAllowed(db: Sql, sourceType: string, lines: ParsedLine[]) {
+  if (sourceType === "opening_balance") return;
+  const settings = (await selectSalesSettings(db)).rows[0];
+  const control = settings?.ar_control_account_id;
+  if (control && lines.some((line) => line.accountId === control)) {
+    throw new AppError(409, "AR_CONTROL", "Manual journals cannot post to the customer receivable control account.");
+  }
+}
+
+async function assertOpeningArReady(db: Sql, sourceType: string, journalId: string) {
+  if (sourceType !== "opening_balance") return;
+  const mismatch = await openingArUnbalanced(db, journalId);
+  if ((mismatch.rowCount ?? 0) > 0) {
+    throw new AppError(409, "OPENING_AR", "Customer opening detail must equal the accounts receivable line before this journal can continue.");
+  }
 }
 
 function assertLineBranches(actor: AuthUser, lines: Array<{ branchId: string | null }>) {

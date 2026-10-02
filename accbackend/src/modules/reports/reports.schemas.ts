@@ -10,3 +10,15 @@ export const reportQuery = z.object({
   accountId: z.string().uuid().optional(),
   format: z.enum(["csv"]).optional(),
 });
+
+export const receivablesQuery = reportQuery.extend({
+  customerId: z.string().uuid().optional(),
+});
+
+export const statementQuery = z.object({
+  customerId: z.string().uuid(),
+  from: isoDate,
+  to: isoDate,
+  branchId: z.string().uuid().optional(),
+  format: z.enum(["csv"]).optional(),
+});

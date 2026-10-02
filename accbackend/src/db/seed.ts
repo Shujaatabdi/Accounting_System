@@ -51,7 +51,10 @@ export async function seed(): Promise<void> {
     );
     await client.query(
       `INSERT INTO document_sequences (doc_type, prefix, next_number, pad_length)
-       VALUES ('journal', 'JE-', 1, 5)
+       VALUES ('journal', 'JE-', 1, 5),
+              ('invoice', 'INV-', 1, 5),
+              ('receipt', 'RCT-', 1, 5),
+              ('customer_return', 'CRN-', 1, 5)
        ON CONFLICT (doc_type) DO NOTHING`,
     );
     for (const permission of PERMISSIONS) {
@@ -101,6 +104,13 @@ export async function seed(): Promise<void> {
         ids.set(account.code, inserted.rows[0].id);
       }
     }
+    await client.query(
+      `UPDATE sales_settings
+          SET ar_control_account_id = (SELECT id FROM accounts WHERE code = '1200')
+        WHERE id = 1
+          AND ar_control_account_id IS NULL
+          AND EXISTS (SELECT 1 FROM accounts WHERE code = '1200')`,
+    );
 
     const yearCount = await client.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM fiscal_years");
     if (yearCount.rows[0].count === "0") {

@@ -9,6 +9,8 @@ import {
 } from "../modules/company/company.schemas";
 import { listSequences, updateSequence } from "../modules/company/numbering.service";
 import { createTaxCode, getAccountingProfile, listTaxCodes, retireTaxCode, updateAccountingProfile } from "../modules/company/tax.service";
+import { salesSettingsBody } from "../modules/company/sales.schemas";
+import { getSalesSettings, updateSalesSettingsProfile } from "../modules/company/sales.service";
 import { parseBody, wrap } from "../shared/http";
 
 export const getCompanyController = wrap(async (_req, res) => {
@@ -33,6 +35,14 @@ export const getAccountingProfileController = wrap(async (_req, res) => {
 
 export const updateAccountingProfileController = wrap(async (req, res) => {
   res.json(await updateAccountingProfile(parseBody(accountingProfileBody, req.body), actorFrom(req)));
+});
+
+export const getSalesSettingsController = wrap(async (_req, res) => {
+  res.json(await getSalesSettings());
+});
+
+export const updateSalesSettingsController = wrap(async (req, res) => {
+  res.json(await updateSalesSettingsProfile(parseBody(salesSettingsBody, req.body), actorFrom(req)));
 });
 
 export const listTaxCodesController = wrap(async (_req, res) => {
