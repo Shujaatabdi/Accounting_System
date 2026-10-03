@@ -6,6 +6,7 @@ import { AppError, one } from "../../shared/errors";
 import { decimal } from "../../shared/money";
 import type { RequestMeta } from "../auth/auth.types";
 import { selectTimezone } from "./company.repository";
+import { selectPostableAccount } from "./sales.repository";
 import {
   closeProfile,
   findAccounts,
@@ -18,6 +19,7 @@ import {
   lockTax,
   retireTax,
   updateProfile,
+  updateTaxAccounts,
 } from "./tax.repository";
 
 const RATE = /^(?:0|[1-9]\d*)(?:\.\d{1,4})?$/;
@@ -41,7 +43,8 @@ export async function createTaxCode(
   assertIsoDate(input.effectiveFrom);
   assertRate(input.ratePercent);
   return withTransaction(async (client) => {
-    await assertAccounts(client, [input.salesAccountId, input.purchaseAccountId]);
+    await assertMappedSalesTaxAccount(client, input.salesAccountId ?? null, decimal(input.ratePercent).gt(0));
+    await assertAccounts(client, [input.purchaseAccountId]);
     const overlap = await findTaxOverlap(client, input.code.trim(), input.effectiveFrom);
     if ((overlap.rowCount ?? 0) > 0) {
       throw new AppError(409, "OVERLAP", "That tax code already has a version covering this date. Retire it first.");
@@ -61,6 +64,23 @@ export async function createTaxCode(
     const tax = mapTax(row);
     await writeAudit(client, event(meta, "tax_codes.create", tax.id, "Created tax code", null, tax));
     return tax;
+  });
+}
+
+export async function updateTaxCodeAccounts(
+  id: string,
+  input: { salesAccountId?: string | null; purchaseAccountId?: string | null },
+  meta: RequestMeta,
+) {
+  return withTransaction(async (client) => {
+    const before = mapTax(one((await lockTax(client, id)).rows, "Tax code not found."));
+    const salesAccountId = input.salesAccountId === undefined ? before.salesAccountId : input.salesAccountId ?? null;
+    const purchaseAccountId = input.purchaseAccountId === undefined ? before.purchaseAccountId : input.purchaseAccountId ?? null;
+    await assertMappedSalesTaxAccount(client, salesAccountId, decimal(before.ratePercent).gt(0) && before.isActive);
+    await assertAccounts(client, [purchaseAccountId]);
+    const after = mapTax(one((await updateTaxAccounts(client, id, salesAccountId, purchaseAccountId)).rows));
+    await writeAudit(client, event(meta, "tax_codes.update_accounts", id, "Updated tax code accounts", before, after));
+    return after;
   });
 }
 
@@ -125,6 +145,19 @@ export async function updateAccountingProfile(
 async function companyToday(db: Sql = { query }) {
   const company = one((await selectTimezone(db)).rows);
   return todayInTimeZone(company.timezone);
+}
+
+export async function assertMappedSalesTaxAccount(db: Sql, accountId: string | null, required: boolean) {
+  if (!accountId) {
+    if (required) {
+      throw new AppError(400, "TAX_ACCOUNT", "A tax code with a rate above zero needs an active liability account that is not a header before it can be used.");
+    }
+    return;
+  }
+  const account = one((await selectPostableAccount(db, accountId)).rows, "Account not found.");
+  if (!account.is_active || account.is_header || account.account_type !== "liability") {
+    throw new AppError(400, "TAX_ACCOUNT", "The sales tax account must be an active liability account that is not a header.");
+  }
 }
 
 async function assertAccounts(db: Sql, ids: Array<string | null | undefined>) {

@@ -9,6 +9,7 @@ import {
   countCustomers,
   countHistory,
   insertCustomer,
+  savePakistanTaxProfile,
   lockOpeningLine,
   replaceAddresses,
   replaceContacts,
@@ -23,6 +24,7 @@ import {
   updateCustomer,
   type CustomerRow,
 } from "./customers.repository";
+import { displayCnicNtn, parseCnicNtn, type PartyType } from "./customer-tax";
 import type { CustomerInput, OpeningDetailInput } from "./customers.types";
 
 export async function listCustomers(page: Page, filters: { search?: string; active?: string }) {
@@ -51,6 +53,7 @@ export async function createCustomer(input: CustomerInput, meta: RequestMeta) {
   return withTransaction(async (client) => {
     assertPrimary(input);
     const row = one((await insertCustomer(client, values(input))).rows);
+    if (taxCountry(input) === "PK") await savePakistanTaxProfile(client, row.id, pakistanValues(input));
     await replaceAddresses(client, row.id, input.addresses);
     await replaceContacts(client, row.id, input.contacts);
     const saved = await load(client, row.id);
@@ -64,6 +67,7 @@ export async function updateCustomerProfile(id: string, input: CustomerInput, me
     assertPrimary(input);
     const before = await load(client, id);
     await updateCustomer(client, id, values(input));
+    if (taxCountry(input) === "PK") await savePakistanTaxProfile(client, id, pakistanValues(input));
     await replaceAddresses(client, id, input.addresses);
     await replaceContacts(client, id, input.contacts);
     const saved = await load(client, id);
@@ -163,6 +167,12 @@ function mapCustomer(row: CustomerRow) {
     phone: row.phone,
     email: row.email,
     taxIdentifier: row.tax_identifier,
+    taxCountryCode: row.tax_country_code,
+    partyType: row.party_type,
+    cnicNtn: row.cnic_ntn,
+    ntnCheckDigit: row.ntn_check_digit,
+    cnicNtnDisplay: displayCnicNtn(row.party_type, row.cnic_ntn, row.ntn_check_digit),
+    strn: row.strn,
     paymentTermsDays: row.payment_terms_days,
     creditLimit: row.credit_limit,
     isActive: row.is_active,
@@ -178,12 +188,29 @@ function values(input: CustomerInput) {
     input.contactName ?? null,
     input.phone ?? null,
     empty(input.email),
-    input.taxIdentifier ?? null,
+    empty(input.taxIdentifier),
+    taxCountry(input),
     input.paymentTermsDays,
     input.creditLimit ? money(input.creditLimit) : null,
     input.isActive,
     input.notes ?? null,
   ];
+}
+
+function taxCountry(input: CustomerInput) {
+  const country = input.taxCountryCode?.trim().toUpperCase() || null;
+  if (country && !/^[A-Z]{2}$/.test(country)) {
+    throw new AppError(400, "VALIDATION", "Tax country must be a two-letter code.");
+  }
+  return country;
+}
+
+function pakistanValues(input: CustomerInput) {
+  if (!input.partyType || !input.cnicNtn?.trim()) {
+    throw new AppError(400, "VALIDATION", "A Pakistan customer needs a party type and a CNIC/NTN. The tax country does not choose a tax rate.");
+  }
+  const parsed = parseCnicNtn(input.partyType as PartyType, input.cnicNtn);
+  return [input.partyType, parsed.canonical, parsed.ntnCheckDigit, empty(input.strn)];
 }
 
 function assertPrimary(input: CustomerInput) {

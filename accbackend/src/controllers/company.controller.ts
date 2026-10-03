@@ -5,10 +5,11 @@ import {
   companyBody,
   numberingBody,
   retireTaxBody,
+  taxCodeAccountsBody,
   taxCodeBody,
 } from "../modules/company/company.schemas";
 import { listSequences, updateSequence } from "../modules/company/numbering.service";
-import { createTaxCode, getAccountingProfile, listTaxCodes, retireTaxCode, updateAccountingProfile } from "../modules/company/tax.service";
+import { createTaxCode, getAccountingProfile, listTaxCodes, retireTaxCode, updateAccountingProfile, updateTaxCodeAccounts } from "../modules/company/tax.service";
 import { salesSettingsBody } from "../modules/company/sales.schemas";
 import { getSalesSettings, updateSalesSettingsProfile } from "../modules/company/sales.service";
 import { parseBody, wrap } from "../shared/http";
@@ -51,6 +52,10 @@ export const listTaxCodesController = wrap(async (_req, res) => {
 
 export const createTaxCodeController = wrap(async (req, res) => {
   res.status(201).json(await createTaxCode(parseBody(taxCodeBody, req.body), actorFrom(req)));
+});
+
+export const updateTaxCodeAccountsController = wrap(async (req, res) => {
+  res.json(await updateTaxCodeAccounts(req.params.id, parseBody(taxCodeAccountsBody, req.body), actorFrom(req)));
 });
 
 export const retireTaxCodeController = wrap(async (req, res) => {

@@ -44,6 +44,14 @@ export async function retireTax(db: Sql, id: string, effectiveTo: string) {
   );
 }
 
+export async function updateTaxAccounts(db: Sql, id: string, salesAccountId: string | null, purchaseAccountId: string | null) {
+  return db.query(
+    `UPDATE tax_codes SET sales_account_id = $2, purchase_account_id = $3 WHERE id = $1
+     RETURNING ${TAX_RETURNING}`,
+    [id, salesAccountId, purchaseAccountId],
+  );
+}
+
 export async function findAccounts(db: Sql, ids: string[]) {
   return db.query("SELECT id FROM accounts WHERE id = ANY($1::uuid[])", [ids]);
 }

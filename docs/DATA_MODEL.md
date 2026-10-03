@@ -1,6 +1,6 @@
 # Data model
 
-PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundation.sql` and `002_customers_sales.sql`. Later phases add new migrations; they do not rewrite an applied file.
+PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundation.sql`, `002_customers_sales.sql`, and `003_customer_tax_profile.sql`. Later phases add new migrations; they do not rewrite an applied file.
 
 ## Precision and identity
 
@@ -26,11 +26,11 @@ PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundat
 | `accounting_profiles` | Effective-dated country profile |
 | `tax_codes` | Effective-dated rates and optional tax accounts |
 | `journal_entries`, `journal_lines` | Headers and lines. Posted lines snapshot account code and name. Source types include `invoice`, `receipt`, `receipt_allocation`, and `customer_return` |
-| `sales_settings` | Tax pricing mode, discount treatment, unapplied-receipt treatment, receivable control account, and optional customer-advance account |
-| `customers`, `customer_addresses`, `customer_contacts` | Customer master. Codes are unique |
+| `sales_settings` | Tax pricing mode, discount treatment, unapplied-receipt treatment, receivable control account, optional customer-advance account, and `show_customer_tax_identifiers` (default false) |
+| `customers`, `customer_addresses`, `customer_contacts` | Customer master. Codes are unique. `tax_identifier` is generic. `tax_country_code`, `party_type`, `cnic_ntn`, `ntn_check_digit`, and `strn` are the optional Pakistan profile. `cnic_ntn` is 13 digits or 7 digits. The check digit is display only and is not verified |
 | `customer_opening_details` | Customer amounts attached to an opening-balance receivable line. This is not a second journal |
 | `product_categories`, `units`, `products`, `product_units` | Catalog. No quantity-on-hand balance |
-| `invoices`, `invoice_lines` | Sales invoices. Posted lines store price, discount, tax mode, rate, base, tax, and accounts |
+| `invoices`, `invoice_lines` | Sales invoices. Posted lines store price, discount, tax mode, rate, base, tax, and accounts. Posting may snapshot customer tax details when the sales setting is on |
 | `receipts`, `receipt_allocations` | Customer receipts and the invoices they pay |
 | `customer_returns`, `customer_return_lines` | Returns. A linked line stores the source invoice line |
 

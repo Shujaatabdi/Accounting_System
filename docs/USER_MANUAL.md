@@ -30,7 +30,7 @@ A company administrator usually completes setup before staff enter day-to-day sa
 3. Open **Country profile** and record the country you are working in. Leave **Compliance** as **Unverified** until a person has reviewed the setup. Reviewed means an administrator acknowledged the setup. It is not a certificate from this software.
 4. Open **Chart of accounts** and confirm the accounts you will use for cash, receivables, sales, tax, and customer advances.
 5. Open **Fiscal periods** and make sure the year and month you will post into are **open**.
-6. Open **Tax codes** only if you will use a named rate later. The tax-code screen does not, by itself, add tax to an invoice. See Sales settings and Invoices.
+6. Open **Tax codes** if you will use a named rate. A rate above zero needs a sales tax account on that screen. An invoice uses the tax code chosen on the line. See Sales settings and Invoices.
 7. Open **Sales settings**. Choose the receivable control account. If unapplied receipts should sit as a customer advance, also choose a liability account called **Customer advances**. Until that account is chosen, the default receipt treatment will not save a receipt.
 8. Open **Users** and **Roles** if other people will sign in.
 9. Open **Branches** if you need more than the starting branch. Invoices, receipts, and returns ask for a branch.
@@ -209,25 +209,22 @@ The page title is **Country profile**. The introduction states that country tax 
 
 Menu: **Tax codes**. Route: `/settings/tax-codes`. View permission: `tax_codes.view`. Add permission: `tax_codes.manage`.
 
-**Purpose.** Store a named percentage rate and the date it starts.
+**Purpose.** Store a named percentage rate, the date it starts, and the sales tax account used when that rate is charged.
 
 **Who uses it.** A company administrator.
 
-The page title is **Tax codes**. The text on the page says tax codes are configuration only and are not calculated on invoices yet. That sentence is out of date. The invoice calculation can use a tax code, but the **New invoice** and **Products** screens do not have a place to choose one. Adding a code here does not change existing invoices.
-
-The form uses placeholders instead of labels.
+The page title is **Tax codes**. The text says a tax code stores a percentage and a start date, invoices use the code selected on the line, and a rate above zero needs an active liability account that is not a header. A rate change is a new code. No country rate is verified. Adding or mapping a code does not change invoices that are already saved.
 
 | Control | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
 | Code | Yes | 1 to 32 characters. Placeholder **Code**. | Example: `STD` | The short name of the rate. |
 | Name | Yes | 1 to 160 characters. Placeholder **Name**. | Example: `Standard rate` | A description for staff. |
 | Rate % | Yes | A percentage from 0 to 100, as a decimal number. Placeholder **Rate %**. The box starts at `0`. | Example: `10` | The rate stored for that code. No country rate is built in. |
+| Sales tax account | Required when the rate is above zero | Active liability accounts that are not headers, or **No sales tax account** when the rate is zero. | Example: `2200 Tax payable` | The account credited for tax on an invoice that uses this code. Invoice users do not choose this account. |
 | Date box | Yes | A calendar date. There is no label. It starts as today’s date. | Example: `2026-01-01` | The first day this version of the rate is effective. |
-| Add tax code | Button | — | — | Adds the code. It does not post a journal. |
+| Add tax code | Button | — | — | Adds the code. It does not post a journal. A rate above zero is rejected until a sales tax account is selected. |
 
-The list has no column headings. Each row shows the code, name, rate with a percent sign, start date, and **Active** or **Retired**.
-
-There is no button on this screen to choose a sales account, a purchase account, or to retire a code. A taxed invoice needs the tax code’s sales account, and this screen cannot set that account. See section 11.
+The list headings are **Code**, **Name**, **Rate**, **Starts**, **Status**, and **Sales tax account**. Choosing an account on an existing row saves that account without changing the rate. An active code with a rate above zero cannot be left without an account. A zero-rate code may have no account. There is still no retire button on this screen.
 
 ### Numbering
 
@@ -263,7 +260,8 @@ Menu: **Sales settings**. Route: `/settings/sales`. Uses the country-profile per
 | Unapplied receipts | Yes | **Customer advance liability** or **Credit accounts receivable**. The stored default is the advance liability. | Example: `Customer advance liability` | Advance: the receipt credits a liability until you allocate it. Credit accounts receivable: the whole receipt reduces receivables immediately, and allocation only marks which invoice it pays. |
 | Receivable control | Yes | A list of asset accounts that can be posted to. | Example: the accounts-receivable account from your chart. | Invoices debit this account. Receipt allocations and returns credit it. Manual journals cannot use it. |
 | Customer advances | Required only for the advance treatment | Liability accounts, or **Not selected**. | Example: an account named `Customer advances`. | Receipts that use the advance treatment cannot be saved until this is selected. |
-| Line discounts use the stored rule | Text, not an input | The only stored rule is `reduce_taxable_base`. | — | A line discount reduces the amount tax is calculated on. The invoice screen has no discount box. |
+| Show customer tax identifiers | Yes | **Off** or **On**. The stored default is Off. | Example: `Off` | When On, posting an invoice copies the customer tax details that exist at that moment. Later customer edits do not change that copy. Turning it Off hides the details on posted invoices and keeps the copy. Turning it On again shows the original copy. Invoices posted while it was Off do not gain details later. These details are not claimed to be legally required. |
+| Line discounts use the stored rule | Text, not an input | The only stored rule is `reduce_taxable_base`. | — | A line discount reduces the amount tax is calculated on. The invoice screen has a discount box. |
 | Save sales settings | Button | — | — | Saves the settings and writes an audit entry. It does not post a journal. |
 
 ### Branches
@@ -476,7 +474,7 @@ Menu: **Customers**. Route: `/customers`. View permission: `customers.view`. Cre
 
 **Who uses it.** Sales staff who can create customers, and anyone who needs the customer list.
 
-The page says customer balances are subledger detail and do not create a second receivable posting. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. The form always saves the customer as active and does not ask for a phone, email, tax identifier, address, or notes, even though the system can store them.
+The page says customer balances are subledger detail and do not create a second receivable posting, and that a tax country does not choose a tax rate. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. Click a row to edit that customer. Saving an edit keeps addresses and contacts that were already stored. The form does not ask for a phone, email, address, or notes. A new customer is saved as active.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -485,9 +483,14 @@ The page says customer balances are subledger detail and do not create a second 
 | Display name | Yes | 1 to 160 characters. | Example: `Harbor Supplies` | Shown on invoices, receipts, returns, and reports. |
 | Payment terms (days) | Yes | A whole number from 0 to 3650. The box starts at `30`. | Example: `30` | Due date on a new invoice is the invoice date plus these days, unless a permitted user overrides it. The invoice screen does not show an override. |
 | Credit limit | Optional | A decimal number of zero or more, or blank. The placeholder says blank means no limit. | Example: `5000.00` | When posting an invoice, the system compares what the customer already owes, minus applicable advances, plus the new invoice. Blank means no check. The invoice screen cannot override a block. |
-| Add customer | Button | — | — | Saves the customer. It does not post a balance. |
+| Tax country | Optional | Two letters, or blank. | Example: `PK` | The customer’s own tax country. It does not choose a tax rate. Pakistan fields appear only when this is `PK`. Changing it away from `PK` hides those fields and does not delete values already stored. |
+| Tax identifier | Optional | Up to 60 characters. | Example: `generic-tax-id` | A generic identifier. It is not treated as a CNIC or NTN, and the system does not guess a party type from it. |
+| Party type | Required when tax country is `PK` | **Individual**, **Company**, or **AOP**. | Example: `Company` | Hidden unless the tax country is `PK`. |
+| CNIC/NTN | Required when tax country is `PK` | Individual: 13 digits. Spaces and hyphens are ignored. Company or AOP: 7 digits, or 7 digits, a hyphen, and one check digit. | Example: `35202-1234567-1` for an individual. Example: `1234567` or `1234567-8` for a company or AOP. | The stored CNIC is the 13 digits. The stored NTN is the 7 digits. The check digit in `1234567-8` is stored separately so the printed form can be shown. It is not counted as part of the seven-digit NTN, and it is not verified. Eight digits without a hyphen, such as `12345678`, are rejected. |
+| STRN | Optional when tax country is `PK` | Up to 60 characters. No format is required. | Example: `12-34-5678-901-23` | Stored as text. Hidden unless the tax country is `PK`. |
+| Add customer / Save customer | Button | — | — | Saves the customer. It does not post a balance. **Cancel** appears while you are editing. |
 
-Table columns: **Code**, **Name** (the display name), **Terms**, **Credit limit** (or **No limit**), and **Status** (Active or Inactive). There is no row action.
+Table columns: **Code**, **Name**, **Tax country**, **CNIC/NTN** (the printed form when a check digit is stored), **Terms**, **Credit limit**, and **Status**. Click a row to edit it.
 
 ### Products
 
@@ -497,7 +500,7 @@ Menu: **Products**. Route: `/products`. View permission: `products.view`. Create
 
 **Who uses it.** Someone who maintains the catalog.
 
-There is no search box. Up to 100 products are listed. The form does not ask for a category, unit, tax code, description, or notes. New products are saved as active. Sales and return accounts must be active income accounts that are not headers.
+There is no search box. Up to 100 products are listed. The form asks for an optional default tax code. It does not ask for a category, unit, description, or notes. New products are saved as active. Sales and return accounts must be active income accounts that are not headers.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -506,6 +509,7 @@ There is no search box. Up to 100 products are listed. The form does not ask for
 | Type | Yes | Service, Non-stock, or Stock. | Example: `Service` | Stock does not track quantity in this version. |
 | Sales price | Yes | A decimal number of zero or more. The box starts at `0.00`. | Example: `150.00` | A catalog price. The invoice screen asks you to type the price again. It does not fill this in for you. |
 | Sales account | Yes | Income accounts from the chart. | Example: `4100 Sales` | The income account credited when an invoice for this product is posted. The invoice stores the account that was current at that time. |
+| Default tax code | Optional | An active tax code, or **No tax**. | Example: `STD Standard rate` | Used only when a new invoice line does not send its own tax code. Changing this later does not change a draft or posted invoice that already stored a code. |
 | Return account | Yes | Income accounts from the chart. | Example: `4100 Sales` | Stored on the product. A return linked to an invoice uses the sales account saved on the invoice line, not a later change to this field. |
 | Add product | Button | — | — | Saves the product. It does not post a journal and does not change stock. |
 
@@ -515,7 +519,7 @@ Table columns: **SKU**, **Name**, **Type**, and **Price**. There is no edit butt
 
 Menu: **Invoices**. Route: `/invoices`. View permission: `invoices.view`.
 
-**Purpose.** Bill a customer. Posting debits accounts receivable and credits the product’s sales account. Tax is added only when the invoice includes a tax code. This screen does not ask for a tax code, so invoices created here have no tax.
+**Purpose.** Bill a customer. Posting debits accounts receivable and credits the product’s sales account, plus the tax code’s sales tax account when the line has tax. Tax is calculated from the company pricing mode and the tax code on the line. The customer’s tax country does not choose the rate.
 
 **Who uses it.** Sales staff, then an approver, then someone who can post.
 
@@ -530,11 +534,11 @@ The list has no search box and shows up to 100 invoices. **New invoice** opens `
 | Date | Invoice date. |
 | Due | Invoice date plus the customer’s payment terms at the time you saved the invoice. |
 | Status | draft, submitted, approved, posted, rejected, void, or reversed. |
-| Total | What the customer is billed. From this screen that is quantity times price, because no discount or tax is entered. |
+| Total | What the customer is billed, after the line discount and tax stored on the invoice. |
 
 #### New invoice
 
-The form saves one line. It does not show notes, a discount, a tax code, a due date, or **Add line**.
+The form saves one line. It shows a discount and a tax code. It does not show notes, a due date, or **Add line**. Choosing a product fills that product’s current tax code. You can choose another active code or **No tax**. The sales tax account is chosen on **Tax codes**, not here. The screen sends the code you chose, so a later change to the product does not replace it.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -544,15 +548,19 @@ The form saves one line. It does not show notes, a discount, a tax code, a due d
 | Product | Yes | Active products. | Example: `SVC-CONSULT Design consultation` | The product supplies the description and the sales account. |
 | Quantity | Yes | A number greater than zero. | Example: `2` | Multiplied by the unit price. |
 | Unit price | Yes | A decimal number of zero or more. The box starts at `0.00`. You must type the price. It is not copied from the product. | Example: `150.00` | Extended price is quantity times this price, rounded to the company decimal places. |
-| Save draft | Button | — | — | Creates a draft. It does not post. |
+| Discount | Optional | A decimal number of zero or more, not more than the extended price. The box starts at `0`. | Example: `10.00` | Reduces the amount tax is calculated on. |
+| Tax code | Optional | An active tax code that is effective on the invoice date, or **No tax**. A rate above zero must already have a sales tax account. | Example: `STD Standard rate` | Filled from the product when you choose the product. Clear it to charge no tax. |
+| Save draft | Button | — | — | Creates a draft. It does not post and does not copy customer tax details. |
 
-Example result: quantity `2` and price `150.00` gives a total of `300.00` with no tax.
+Example result: quantity `2` and price `150.00`, with no discount and no tax code, gives a total of `300.00`. A 10 percent exclusive tax code on that amount adds `30.00` of tax.
 
 #### Invoice detail
 
 Route: `/invoices/{id}`.
 
-You see the number, customer, invoice date, due date, and status. The line table headings are **Description**, **Qty**, **Price**, **Tax**, and **Total**. Under the table you see tax and total.
+You see the number, customer, invoice date, due date, and status. When **Show customer tax identifiers** is on and this invoice was posted while that switch was on, a **Customer tax details** block shows the copy taken at posting. That copy can include tax country, the generic tax identifier, and, only when the tax country was `PK`, party type, CNIC/NTN, and STRN. A company or AOP NTN is shown as `1234567-8` when a check digit was stored. The check digit is not verified. Later edits to the customer do not change this block. Drafts do not show it.
+
+The line table headings are **Description**, **Qty**, **Price**, **Discount**, **Tax code**, **Tax**, and **Total**. On a draft or rejected invoice you can change the discount and tax code, then choose **Save line tax and discount**. That save sends the code you chose. Under the table you see tax and total.
 
 | Button | When it appears | What it does |
 | --- | --- | --- |
@@ -562,7 +570,7 @@ You see the number, customer, invoice date, due date, and status. The line table
 | Reverse | Posted | Posts the opposite journal and marks the invoice reversed. Fails if a posted receipt allocation or a posted return still applies. The reason box must be filled. The page does not label a minimum length. The system accepts a reason from 1 to 500 characters. |
 | Reason | Next to Reverse | Placeholder **Reason**. Used only by Reverse on this screen. |
 
-This screen does not show Reject, Void, a credit-limit override, or a due-date override. Those actions exist in the system but not on the page. There is no edit form for a draft invoice.
+This screen does not show Reject, Void, a credit-limit override, or a due-date override. Those actions exist in the system but not on the page. A draft can change the line discount and tax code. It cannot change the customer, quantity, or price on this page.
 
 ### Receipts
 
@@ -825,17 +833,15 @@ These items are not on the pages described above. Do not expect to complete them
 | Edit an existing role | You can create a role and read existing ones. There is no edit button. |
 | Edit, deactivate, or delete an account | You can add an account and read the list. |
 | Edit a branch, or enter its city | You can add a branch. The list shows code, name, and active status. |
-| Retire a tax code, or set its sales account | You can add a code. There is no retire button and no account field. Because of that, the invoice screen also cannot add tax. |
-| Tax code and discount on an invoice | Not on New invoice. Invoices created from the screen have no tax and no discount. |
+| Retire a tax code | You can add a code and set its sales tax account. There is no retire button. |
 | More than one invoice line | The new-invoice form has one product line. |
-| Edit a draft invoice, receipt, or return | The detail pages do not show an edit form. |
+| Edit a draft invoice, receipt, or return | A draft invoice can change the line discount and tax code. It cannot change the customer, quantity, or price on that page. Receipt and return detail pages do not show an edit form. |
 | Reject or void an invoice, receipt, or return from the screen | Journals have these buttons. The sales documents do not. |
 | Reverse or void a receipt from the screen | You can unallocate. The receipt page has no Reverse or Void button. |
 | Unreferenced customer return | Not on the form. Every return from the screen must name an invoice line. |
 | Return condition other than restockable | Not on the form. The stored value does not change the accounts. |
 | Customer opening balance by customer | There is no screen. A manual journal still cannot use the receivable control account. An opening-balance journal can use it only when customer amounts equal that line, and those amounts cannot be entered here. |
 | Search boxes | Most lists do not show a search field, even where the system could filter. Long lists stop at 50 or 100 rows. |
-| Tax codes page wording | The page still says tax is not calculated on invoices. The calculation exists, but the invoice screen does not collect a tax code. |
 
 ## 12. Glossary
 
@@ -850,7 +856,7 @@ These items are not on the pages described above. Do not expect to complete them
 | Fiscal period | A month inside a fiscal year. Posting is allowed only while that month and its year are open. |
 | Control account | A summary account, such as accounts receivable. Customer documents keep the detail. The totals must match before a receivables report will run. |
 | Receivable | Money a customer owes the company. |
-| Tax code | A named percentage and a start date. It does not certify a country’s tax rules. The invoice screen does not currently ask for one. |
+| Tax code | A named percentage, a start date, and, when the rate is above zero, a sales tax liability account. It does not certify a country’s tax rules. The invoice screen asks for the code. It does not ask for the tax account. |
 | Aging | A report of open invoices grouped by how many days have passed since the due date. |
 | Allocation | Applying part or all of a receipt to a posted invoice. |
 | Customer advance | Money received that is not yet applied to an invoice. It is held in a liability account when that sales setting is in use. |

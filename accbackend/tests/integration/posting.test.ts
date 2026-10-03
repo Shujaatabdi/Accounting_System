@@ -394,6 +394,7 @@ test("sales invoices, partial returns, and receipts stay within the receivable c
   const settings = await request(app).put("/api/v1/sales-settings").set(auth).send({
     taxPricingMode: "exclusive", unappliedReceiptTreatment: "customer_advance",
     arControlAccountId: receivable.id, customerAdvanceAccountId: advances.body.id,
+    showCustomerTaxIdentifiers: false,
   });
   assert.equal(settings.status, 200, JSON.stringify(settings.body));
 

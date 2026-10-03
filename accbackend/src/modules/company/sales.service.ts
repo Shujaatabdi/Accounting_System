@@ -15,6 +15,7 @@ export async function updateSalesSettingsProfile(
     unappliedReceiptTreatment: "customer_advance" | "credit_ar";
     arControlAccountId: string;
     customerAdvanceAccountId?: string | null;
+    showCustomerTaxIdentifiers: boolean;
   },
   meta: RequestMeta,
 ) {
@@ -32,6 +33,7 @@ export async function updateSalesSettingsProfile(
       input.unappliedReceiptTreatment,
       input.arControlAccountId,
       input.customerAdvanceAccountId ?? null,
+      input.showCustomerTaxIdentifiers,
     ]);
     const saved = map(one((await selectSalesSettings(client)).rows));
     await writeAudit(client, {
@@ -61,5 +63,6 @@ function map(row: Awaited<ReturnType<typeof selectSalesSettings>>["rows"][number
     unappliedReceiptTreatment: row.unapplied_receipt_treatment,
     arControlAccountId: row.ar_control_account_id,
     customerAdvanceAccountId: row.customer_advance_account_id,
+    showCustomerTaxIdentifiers: row.show_customer_tax_identifiers,
   };
 }

@@ -61,4 +61,9 @@ export const taxCodeBody = z.object({
   effectiveFrom: isoDate,
 });
 
+export const taxCodeAccountsBody = z.object({
+  salesAccountId: z.string().uuid().nullish(),
+  purchaseAccountId: z.string().uuid().nullish(),
+});
+
 export const retireTaxBody = z.object({ effectiveTo: isoDate });

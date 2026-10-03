@@ -10,6 +10,11 @@ export type CustomerRow = {
   phone: string | null;
   email: string | null;
   tax_identifier: string | null;
+  tax_country_code: string | null;
+  party_type: string | null;
+  cnic_ntn: string | null;
+  ntn_check_digit: string | null;
+  strn: string | null;
   payment_terms_days: number;
   credit_limit: string | null;
   is_active: boolean;
@@ -17,6 +22,7 @@ export type CustomerRow = {
 };
 
 const fields = `id, code, legal_name, display_name, contact_name, phone, email, tax_identifier,
+  tax_country_code, party_type, cnic_ntn, ntn_check_digit, strn,
   payment_terms_days, credit_limit::text, is_active, notes`;
 
 export async function countCustomers(db: Sql, clause: string, params: unknown[]) {
@@ -39,9 +45,9 @@ export async function selectCustomer(db: Sql, id: string, lock = false) {
 export async function insertCustomer(db: Sql, values: unknown[]) {
   return db.query<{ id: string }>(
     `INSERT INTO customers (
-       code, legal_name, display_name, contact_name, phone, email, tax_identifier,
+       code, legal_name, display_name, contact_name, phone, email, tax_identifier, tax_country_code,
        payment_terms_days, credit_limit, is_active, notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
     values,
   );
 }
@@ -50,9 +56,16 @@ export async function updateCustomer(db: Sql, id: string, values: unknown[]) {
   await db.query(
     `UPDATE customers SET
        code=$1, legal_name=$2, display_name=$3, contact_name=$4, phone=$5, email=$6,
-       tax_identifier=$7, payment_terms_days=$8, credit_limit=$9, is_active=$10, notes=$11, updated_at=now()
-     WHERE id = $12`,
+       tax_identifier=$7, tax_country_code=$8, payment_terms_days=$9, credit_limit=$10, is_active=$11, notes=$12, updated_at=now()
+     WHERE id = $13`,
     [...values, id],
+  );
+}
+
+export async function savePakistanTaxProfile(db: Sql, id: string, values: unknown[]) {
+  await db.query(
+    `UPDATE customers SET party_type = $2, cnic_ntn = $3, ntn_check_digit = $4, strn = $5, updated_at = now() WHERE id = $1`,
+    [id, ...values],
   );
 }
 

@@ -3,7 +3,9 @@ import type { Sql } from "../../db/pool";
 const header = `i.id, i.invoice_number, i.customer_id, c.display_name AS customer_name, i.branch_id,
   i.status, i.invoice_date::text, i.due_date::text, i.payment_terms_days, i.due_date_overridden,
   i.tax_pricing_mode, i.discount_treatment, i.notes, i.taxable_total::text, i.tax_total::text, i.total::text,
-  i.journal_entry_id, i.created_by, i.submitted_by, i.approved_by, i.posted_by`;
+  i.journal_entry_id, i.created_by, i.submitted_by, i.approved_by, i.posted_by,
+  i.snapshot_tax_country_code, i.snapshot_tax_identifier, i.snapshot_party_type,
+  i.snapshot_cnic_ntn, i.snapshot_ntn_check_digit, i.snapshot_strn`;
 
 export async function countInvoices(db: Sql, clause: string, params: unknown[]) {
   return db.query<{ count: string }>(
@@ -70,6 +72,36 @@ export async function replaceInvoiceLines(db: Sql, invoiceId: string, lines: unk
       [invoiceId, ...line],
     );
   }
+}
+
+export async function setInvoiceCustomerTaxSnapshot(db: Sql, id: string, values: unknown[]) {
+  await db.query(
+    `UPDATE invoices SET
+       snapshot_tax_country_code = $2,
+       snapshot_tax_identifier = $3,
+       snapshot_party_type = $4,
+       snapshot_cnic_ntn = $5,
+       snapshot_ntn_check_digit = $6,
+       snapshot_strn = $7,
+       updated_at = now()
+     WHERE id = $1`,
+    [id, ...values],
+  );
+}
+
+export async function lockCustomerTaxProfile(db: Sql, id: string) {
+  return db.query<{
+    tax_country_code: string | null;
+    tax_identifier: string | null;
+    party_type: string | null;
+    cnic_ntn: string | null;
+    ntn_check_digit: string | null;
+    strn: string | null;
+  }>(
+    `SELECT tax_country_code, tax_identifier, party_type, cnic_ntn, ntn_check_digit, strn
+       FROM customers WHERE id = $1 FOR UPDATE`,
+    [id],
+  );
 }
 
 export async function setInvoiceStatus(db: Sql, id: string, sql: string, values: unknown[]) {

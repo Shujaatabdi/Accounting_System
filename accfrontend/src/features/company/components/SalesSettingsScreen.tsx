@@ -10,6 +10,7 @@ type Settings = {
   unappliedReceiptTreatment: "customer_advance" | "credit_ar";
   arControlAccountId: string | null;
   customerAdvanceAccountId: string | null;
+  showCustomerTaxIdentifiers: boolean;
 };
 
 export default function SalesSettingsScreen() {
@@ -74,6 +75,13 @@ export default function SalesSettingsScreen() {
             {liabilities.map((account) => <option key={account.id} value={account.id}>{account.code} {account.name}</option>)}
           </select>
         </label>
+        <label className="field"><span>Show customer tax identifiers</span>
+          <select value={settings.showCustomerTaxIdentifiers ? "yes" : "no"} onChange={(event) => setSettings({ ...settings, showCustomerTaxIdentifiers: event.target.value === "yes" })}>
+            <option value="no">Off</option>
+            <option value="yes">On</option>
+          </select>
+        </label>
+        <p>When this is on, posting an invoice keeps a copy of the customer tax details that exist at that moment. Later customer edits do not change a posted invoice. Turning it off hides the details and keeps the copy. These details are not claimed to be legally required.</p>
         <p>Line discounts use the stored rule: {settings.discountTreatment}.</p>
         <button className="btn" type="submit">Save sales settings</button>
       </form>

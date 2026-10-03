@@ -4,11 +4,14 @@ import { FormEvent, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 
 type Account = { id: string; code: string; name: string; accountType: string };
-type Product = { id: string; sku: string; name: string; itemType: string; salesPrice: string; isActive: boolean };
+type TaxCode = { id: string; code: string; name: string; isActive: boolean };
+type Product = { id: string; sku: string; name: string; itemType: string; salesPrice: string; taxCodeId: string | null; isActive: boolean };
 
 export default function ProductsScreen() {
   const [rows, setRows] = useState<Product[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [taxCodes, setTaxCodes] = useState<TaxCode[]>([]);
+  const [taxCodeId, setTaxCodeId] = useState("");
   const [error, setError] = useState("");
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
@@ -21,8 +24,10 @@ export default function ProductsScreen() {
     Promise.all([
       api<{ data: Product[] }>("/api/v1/products?pageSize=100"),
       api<{ data: Account[] }>("/api/v1/accounts?postable=true&pageSize=100"),
-    ]).then(([products, accountRows]) => {
+      api<{ data: TaxCode[] }>("/api/v1/tax-codes").catch(() => ({ data: [] as TaxCode[] })),
+    ]).then(([products, accountRows, taxRows]) => {
       setRows(products.data);
+      setTaxCodes(taxRows.data.filter((code) => code.isActive));
       const income = accountRows.data.filter((account) => account.accountType === "income");
       setAccounts(income);
       if (income[0]) {
@@ -38,7 +43,7 @@ export default function ProductsScreen() {
     try {
       await api("/api/v1/products", {
         method: "POST",
-        body: JSON.stringify({ sku, name, itemType, salesPrice, salesAccountId, returnAccountId, isActive: true, units: [] }),
+        body: JSON.stringify({ sku, name, itemType, salesPrice, salesAccountId, returnAccountId, taxCodeId: taxCodeId || null, isActive: true, units: [] }),
       });
       setSku(""); setName("");
       setRows((await api<{ data: Product[] }>("/api/v1/products?pageSize=100")).data);
@@ -66,6 +71,12 @@ export default function ProductsScreen() {
         <label className="field"><span>Sales account</span>
           <select value={salesAccountId} onChange={(event) => setSalesAccountId(event.target.value)} required>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.code} {account.name}</option>)}
+          </select>
+        </label>
+        <label className="field"><span>Default tax code</span>
+          <select value={taxCodeId} onChange={(event) => setTaxCodeId(event.target.value)}>
+            <option value="">No tax</option>
+            {taxCodes.map((code) => <option key={code.id} value={code.id}>{code.code} {code.name}</option>)}
           </select>
         </label>
         <label className="field"><span>Return account</span>

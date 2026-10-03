@@ -8,7 +8,7 @@ Implemented and covered by unit tests plus a PostgreSQL integration test:
 
 - Company profile, addresses, contacts, currency, time zone, fiscal-year start month, logo URL, and document numbering.
 - Country accounting profile with effective dates. Compliance stays unverified until an administrator marks it reviewed. That flag is not a statutory certification.
-- Tax code configuration only. No invoice tax calculation.
+- Tax codes store a rate and an optional sales account. Invoice tax is calculated in Phase 2 from the company pricing mode and the tax code on the line. The country code does not choose a rate.
 - Users, roles, action permissions, branch scope, privilege ceiling, and audit log.
 - Branches, chart of accounts, monthly fiscal years and periods, close and reopen.
 - Manual journals and opening-balance journals: draft, submit, approve, post, reject, void, reverse.
@@ -26,7 +26,7 @@ Limitations inside this phase:
 
 ## Phase 2 — Customers and sales — implemented
 
-Customers, products and services, invoices, receipts, allocations, statements, customer returns, and receivables aging. Posted documents call the ledger. Inventory quantity, inventory value, and cost of goods sold are not posted. Supplier master data is still Phase 3.
+Customers, products and services, invoices, receipts, allocations, statements, customer returns, and receivables aging. Posted documents call the ledger. Customer tax identifiers can be stored, and a sales setting can copy them onto an invoice at posting. Inventory quantity, inventory value, and cost of goods sold are not posted. Supplier master data is still Phase 3. ATL tracking and FBR/IRIS connections are not in this phase.
 
 ## Phase 3 — Suppliers and purchasing — not started
 
@@ -42,7 +42,7 @@ Do not implement until the costing method is chosen. FIFO and weighted average a
 
 ## Phase 6 — Country and business extensions — not started
 
-Country tax and statutory reports only after a country is selected and reviewed. Business-specific workflows and integrations come after that.
+Country tax and statutory reports only after a country is selected and reviewed. Active taxpayer (ATL) tracking and FBR/IRIS connections, if added, belong here. Business-specific workflows and integrations come after that.
 
 ## Suggested order after review
 

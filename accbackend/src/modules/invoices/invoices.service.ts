@@ -9,6 +9,8 @@ import type { AuthUser, RequestMeta } from "../auth/auth.types";
 import { selectCurrencyScale, selectRequireDistinctApprover } from "../company/company.repository";
 import { allocateNumber } from "../company/numbering.service";
 import { selectSalesSettings } from "../company/sales.repository";
+import { assertMappedSalesTaxAccount } from "../company/tax.service";
+import { displayCnicNtn } from "../customers/customer-tax";
 import { selectExposure } from "../customers/customers.repository";
 import {
   allowSystemPost,
@@ -29,11 +31,13 @@ import {
   selectBranch,
   selectCustomerForSale,
   selectInvoice,
+  lockCustomerTaxProfile,
   selectInvoiceLines,
   selectInvoices,
   selectProductForSale,
   selectTaxCode,
   selectUnitFactor,
+  setInvoiceCustomerTaxSnapshot,
   setInvoiceStatus,
   updateInvoice,
 } from "./invoices.repository";
@@ -160,9 +164,9 @@ export async function postInvoice(id: string, input: { postingDate?: string; ove
     const taxes = new Map<string, Decimal>();
     for (const line of current.lines) {
       addMap(sales, line.salesAccountId, line.taxableBase);
-      if (decimal(line.taxAmount).gt(0)) {
-        if (!line.taxAccountId) throw new AppError(409, "TAX_ACCOUNT", "A taxed line needs the tax code sales account that was saved on the invoice.");
-        addMap(taxes, line.taxAccountId, line.taxAmount);
+      if (decimal(line.taxRate).gt(0) || decimal(line.taxAmount).gt(0)) {
+        await assertMappedSalesTaxAccount(client, line.taxAccountId, true);
+        if (decimal(line.taxAmount).gt(0) && line.taxAccountId) addMap(taxes, line.taxAccountId, line.taxAmount);
       }
     }
     const journalId = await postSystemJournal(client, {
@@ -179,6 +183,8 @@ export async function postInvoice(id: string, input: { postingDate?: string; ove
         ...[...taxes].map(([accountId, amount]) => ({ accountId, branchId: current.branchId, description: current.invoiceNumber, debit: "0", credit: money(amount) })),
       ],
     });
+    const profile = one((await lockCustomerTaxProfile(client, current.customerId)).rows, "Customer not found.");
+    await setInvoiceCustomerTaxSnapshot(client, id, customerTaxSnapshot(settings.show_customer_tax_identifiers, profile));
     await setInvoiceStatus(client, id, "status = 'posted', journal_entry_id = $2, posted_at = now(), posted_by = $3", [journalId, meta.actor.id]);
     const saved = await load(client, id, meta.actor, false);
     await audit(client, meta, "invoices.post", id, `Posted ${saved.invoiceNumber}`, current, saved);
@@ -260,7 +266,7 @@ async function build(db: Sql, input: InvoiceInput, meta: RequestMeta) {
       const unit = one((await selectUnitFactor(db, product.id, line.unitId)).rows, "That unit is not set on the product.");
       factor = unit.factor;
     }
-    const taxCodeId = line.taxCodeId ?? null;
+    const taxCodeId = line.taxCodeId === undefined ? product.tax_code_id : line.taxCodeId ?? null;
     let rate = "0";
     let taxAccount: string | null = null;
     if (taxCodeId) {
@@ -270,6 +276,7 @@ async function build(db: Sql, input: InvoiceInput, meta: RequestMeta) {
       }
       rate = taxCode.rate_percent;
       taxAccount = taxCode.sales_account_id;
+      await assertMappedSalesTaxAccount(db, taxAccount, decimal(rate).gt(0));
     }
     const priced = priceInvoiceLine({
       quantity: line.quantity,
@@ -280,9 +287,6 @@ async function build(db: Sql, input: InvoiceInput, meta: RequestMeta) {
       treatment: settings.discount_treatment,
       scale,
     });
-    if (decimal(priced.taxAmount).gt(0) && !taxAccount) {
-      throw new AppError(400, "TAX_ACCOUNT", "The tax code needs a sales account before it can be used on an invoice.");
-    }
     taxable = taxable.plus(priced.taxableBase);
     tax = tax.plus(priced.taxAmount);
     total = total.plus(priced.lineTotal);
@@ -322,7 +326,12 @@ async function load(db: Sql, id: string, actor: AuthUser, lock: boolean) {
   const row = one((await selectInvoice(db, id, lock)).rows, "Invoice not found.");
   if (actor.branchIds && !actor.branchIds.includes(row.branch_id)) throw new AppError(404, "NOT_FOUND", "Invoice not found.");
   const lines = await selectInvoiceLines(db, id);
-  return { ...mapHeader(row), lines: lines.rows.map(mapLine) };
+  const settings = one((await selectSalesSettings(db)).rows);
+  return {
+    ...mapHeader(row),
+    lines: lines.rows.map(mapLine),
+    customerTaxIdentifiers: customerTaxDisplay(row, settings.show_customer_tax_identifiers),
+  };
 }
 
 function mapHeader(row: {
@@ -366,6 +375,41 @@ function mapLine(row: {
     unitId: row.unit_id, unitPrice: row.unit_price, discountAmount: row.discount_amount, taxCodeId: row.tax_code_id,
     taxPricingMode: row.tax_pricing_mode, taxRate: row.tax_rate, taxableBase: row.taxable_base, taxAmount: row.tax_amount,
     lineTotal: row.line_total, salesAccountId: row.sales_account_id, taxAccountId: row.tax_account_id,
+  };
+}
+
+function customerTaxSnapshot(show: boolean, profile: {
+  tax_country_code: string | null;
+  tax_identifier: string | null;
+  party_type: string | null;
+  cnic_ntn: string | null;
+  ntn_check_digit: string | null;
+  strn: string | null;
+}) {
+  if (!show) return [null, null, null, null, null, null];
+  if (profile.tax_country_code === "PK") {
+    return [profile.tax_country_code, profile.tax_identifier, profile.party_type, profile.cnic_ntn, profile.ntn_check_digit, profile.strn];
+  }
+  return [profile.tax_country_code, profile.tax_identifier, null, null, null, null];
+}
+
+function customerTaxDisplay(row: {
+  snapshot_tax_country_code?: string | null;
+  snapshot_tax_identifier?: string | null;
+  snapshot_party_type?: string | null;
+  snapshot_cnic_ntn?: string | null;
+  snapshot_ntn_check_digit?: string | null;
+  snapshot_strn?: string | null;
+}, show: boolean) {
+  if (!show) return null;
+  const cnicNtn = displayCnicNtn(row.snapshot_party_type ?? null, row.snapshot_cnic_ntn ?? null, row.snapshot_ntn_check_digit ?? null);
+  if (!row.snapshot_tax_country_code && !row.snapshot_tax_identifier && !row.snapshot_party_type && !cnicNtn && !row.snapshot_strn) return null;
+  return {
+    taxCountryCode: row.snapshot_tax_country_code ?? null,
+    taxIdentifier: row.snapshot_tax_identifier ?? null,
+    partyType: row.snapshot_party_type ?? null,
+    cnicNtn,
+    strn: row.snapshot_strn ?? null,
   };
 }
 

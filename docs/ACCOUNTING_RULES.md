@@ -42,4 +42,4 @@ A date can be posted only when both its period and its fiscal year are open. Clo
 
 ## History
 
-Posted lines keep the account code and name from posting time. Later renames do not rewrite those snapshots. Account type and code cannot change after any journal line exists. Currency name, symbol, and decimal places cannot change after a journal is posted. Tax codes are effective-dated; this phase does not yet apply them to documents.
+Posted lines keep the account code and name from posting time. Later renames do not rewrite those snapshots. Account type and code cannot change after any journal line exists. Currency name, symbol, and decimal places cannot change after a journal is posted. Tax codes are effective-dated. An invoice or return line stores the rate, tax amount, and tax account from the code selected when that line was saved.

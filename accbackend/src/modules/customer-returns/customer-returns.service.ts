@@ -9,6 +9,7 @@ import type { AuthUser, RequestMeta } from "../auth/auth.types";
 import { selectCurrencyScale, selectRequireDistinctApprover } from "../company/company.repository";
 import { allocateNumber } from "../company/numbering.service";
 import { selectSalesSettings } from "../company/sales.repository";
+import { assertMappedSalesTaxAccount } from "../company/tax.service";
 import { partialReturnAmounts, priceInvoiceLine } from "../invoices/invoice.math";
 import {
   allowSystemPost,
@@ -301,6 +302,7 @@ async function build(db: Sql, input: ReturnInput, meta: RequestMeta, locked: boo
         }
         rate = taxCode.rate_percent;
         taxAccount = taxCode.sales_account_id;
+        await assertMappedSalesTaxAccount(db, taxAccount, decimal(rate).gt(0));
       }
       const priced = priceInvoiceLine({
         quantity: line.quantity,
@@ -311,7 +313,6 @@ async function build(db: Sql, input: ReturnInput, meta: RequestMeta, locked: boo
         treatment: settings.discount_treatment,
         scale,
       });
-      if (decimal(priced.taxAmount).gt(0) && !taxAccount) throw new AppError(400, "TAX_ACCOUNT", "The tax code needs a sales account.");
       taxable = taxable.plus(priced.taxableBase);
       tax = tax.plus(priced.taxAmount);
       total = total.plus(priced.lineTotal);

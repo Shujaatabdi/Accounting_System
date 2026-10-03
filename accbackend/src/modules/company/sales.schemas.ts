@@ -5,4 +5,5 @@ export const salesSettingsBody = z.object({
   unappliedReceiptTreatment: z.enum(["customer_advance", "credit_ar"]),
   arControlAccountId: z.string().uuid(),
   customerAdvanceAccountId: z.string().uuid().nullish(),
+  showCustomerTaxIdentifiers: z.boolean(),
 });

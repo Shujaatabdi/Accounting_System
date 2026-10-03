@@ -23,7 +23,7 @@ Health: `GET /health`, `GET /health/ready`.
 | Company | `GET /company`, `PUT /company` |
 | Numbering | `GET /numbering`, `PUT /numbering/:docType` |
 | Country profile | `GET /accounting-profile`, `PUT /accounting-profile` |
-| Tax codes | `GET /tax-codes`, `POST /tax-codes`, `POST /tax-codes/:id/retire` |
+| Tax codes | `GET /tax-codes`, `POST /tax-codes`, `PUT /tax-codes/:id`, `POST /tax-codes/:id/retire` |
 | Branches | `GET /branches`, `POST /branches`, `PUT /branches/:id` |
 | Users | `GET /users`, `POST /users`, `PUT /users/:id` |
 | Roles | `GET /permissions`, `GET /roles`, `POST /roles`, `PUT /roles/:id` |
@@ -60,6 +60,12 @@ Health: `GET /health`, `GET /health/ready`.
 ## Sales documents
 
 Invoice, receipt, and return bodies use the same draft, submit, approve, and post flow as journals. Amounts are decimal strings. A linked return line sends `invoiceLineId` and `quantity`. An unreferenced return also requires `customer_returns.create_unreferenced`, a reason, product, price, tax code, and return account. Posting a return locks the source invoice line and rejects a quantity or value above the remainder. Reversing an invoice fails while a posted allocation or posted return still applies. The default receipt treatment needs `customerAdvanceAccountId` on sales settings. Receivables reports return `409` when customer detail does not equal the receivable control account. Aging omits unapplied advances.
+
+`PUT /sales-settings` includes `showCustomerTaxIdentifiers`. The default is false. When it is true at posting, the invoice stores `snapshot_tax_country_code`, `snapshot_tax_identifier`, and, only if the customer tax country is `PK`, party type, the canonical CNIC/NTN, the optional NTN check digit, and STRN. `GET /invoices/:id` returns `customerTaxIdentifiers` only while that setting is on and the snapshot has a value. Drafts return null. Later customer edits do not change the snapshot.
+
+A customer body may include `taxCountryCode`, `taxIdentifier`, `partyType`, `cnicNtn`, and `strn`. `taxIdentifier` stays a generic value and is not copied into CNIC/NTN. When `taxCountryCode` is `PK`, party type and CNIC/NTN are required. An individual CNIC is stored as 13 digits. A company or AOP NTN is stored as 7 digits. The printed form `1234567-8` also stores check digit `8`. That digit is not verified. A save whose tax country is not `PK` does not clear party type, CNIC/NTN, the check digit, or STRN.
+
+`POST /tax-codes` rejects an active rate above zero until `salesAccountId` is an active non-header liability account. A zero rate may omit it. `PUT /tax-codes/:id` changes `salesAccountId` and `purchaseAccountId` only. It does not change the rate. An invoice or return line uses the product tax code only when `taxCodeId` is omitted. `null` means no tax. A sent code is validated as active and effective on the document date. A rate above zero cannot be used until its sales tax account is mapped.
 
 ## Status codes
 
