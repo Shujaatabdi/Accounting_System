@@ -34,11 +34,22 @@ export async function saveRole(db: Sql, id: string, name: string, description: s
 }
 
 export async function replaceRolePermissions(db: Sql, roleId: string, codes: string[]) {
+  const unique = [...new Set(codes)];
   await db.query("DELETE FROM role_permissions WHERE role_id = $1", [roleId]);
-  if (codes.length === 0) return;
-  await db.query(
-    `INSERT INTO role_permissions (role_id, permission_id)
-     SELECT $1, id FROM permissions WHERE code = ANY($2::text[])`,
-    [roleId, [...new Set(codes)]],
+  if (unique.length === 0) return [];
+  const inserted = await db.query<{ code: string }>(
+    `WITH chosen AS (
+       SELECT id, code FROM permissions WHERE code = ANY($2::text[])
+     ),
+     inserted AS (
+       INSERT INTO role_permissions (role_id, permission_id)
+       SELECT $1, id FROM chosen
+       RETURNING permission_id
+     )
+     SELECT p.code
+       FROM inserted i
+       JOIN permissions p ON p.id = i.permission_id`,
+    [roleId, unique],
   );
+  return inserted.rows.map((row) => row.code);
 }

@@ -6,7 +6,7 @@ The Company Admin role (`company_admin`) is a system role. It always has every p
 
 Permissions are stored as `module.action`. The catalog includes view, create, update, manage, submit, approve, post, reverse, void, close, reopen, and export. Purchasing adds supplier, bill, supplier-payment, and supplier-return actions, including `bills.override_due_date`, `supplier_payments.allocate`, and `supplier_returns.create_unreferenced`. The exact codes are in `accbackend/src/modules/auth/auth.permissions.ts` and are seeded into `permissions`.
 
-Company Admin bypasses permission checks. Other users need the matching permission. A user who can edit roles still cannot grant a permission they do not hold, and cannot assign Company Admin.
+Company Admin bypasses permission checks. Other users need the matching permission. A user who can edit roles still cannot grant a permission they do not hold, and cannot assign Company Admin. A rejected grant names the permission. A role code uses letters, digits, and underscores, up to 40 characters, and stays unique. `SmgrSale` is a valid code.
 
 ## Branches
 

@@ -563,3 +563,124 @@ test("supplier bills, partial returns, and payments stay within the payable cont
   assert.equal(trial.body.balances, true);
   assert.equal(trial.body.totalDebit, trial.body.totalCredit);
 });
+
+const SALES_MANAGER_PERMISSIONS = [
+  "accounting_profile.update",
+  "accounting_profile.view",
+  "accounts.create",
+  "accounts.update",
+  "accounts.view",
+  "audit.view",
+  "bills.approve",
+  "bills.create",
+  "bills.override_due_date",
+  "bills.post",
+  "bills.reverse",
+  "bills.submit",
+  "bills.update",
+  "bills.view",
+  "bills.void",
+  "branches.create",
+  "branches.update",
+  "branches.view",
+  "company.update",
+  "company.view",
+  "customer_returns.approve",
+  "customer_returns.create",
+  "customer_returns.create_unreferenced",
+  "customer_returns.post",
+  "customer_returns.reverse",
+  "customer_returns.submit",
+  "customer_returns.update",
+  "customer_returns.view",
+  "customer_returns.void",
+  "customers.create",
+  "customers.update",
+  "customers.view",
+  "invoices.approve",
+  "invoices.create",
+  "invoices.override_credit_limit",
+  "invoices.override_due_date",
+  "invoices.post",
+  "invoices.reverse",
+  "invoices.submit",
+  "invoices.update",
+  "invoices.view",
+  "invoices.void",
+  "journals.approve",
+  "journals.create",
+  "journals.post",
+  "journals.reverse",
+  "journals.submit",
+  "journals.update",
+  "users.create",
+  "users.update",
+];
+
+test("an administrator can save the sales manager role without dropping permissions", async () => {
+  const auth = { Authorization: `Bearer ${token}` };
+  const created = await request(app).post("/api/v1/roles").set(auth).send({
+    code: "SmgrSale",
+    name: "Manager Sales",
+    permissions: SALES_MANAGER_PERMISSIONS,
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.deepEqual([...created.body.permissions].sort(), [...SALES_MANAGER_PERMISSIONS].sort());
+
+  const listed = await request(app).get("/api/v1/roles").set(auth);
+  assert.equal(listed.status, 200);
+  const saved = listed.body.data.find((role: { code: string }) => role.code === "SmgrSale");
+  assert.ok(saved);
+  assert.equal(saved.name, "Manager Sales");
+  assert.deepEqual([...saved.permissions].sort(), [...SALES_MANAGER_PERMISSIONS].sort());
+
+  const badCode = await request(app).post("/api/v1/roles").set(auth).send({
+    code: "Bad Code",
+    name: "Bad",
+    permissions: [],
+  });
+  assert.equal(badCode.status, 400);
+  assert.match(String(badCode.body.error?.details?.fieldErrors?.code?.[0] ?? ""), /letters, digits, and underscores/);
+
+  const unknown = await request(app).post("/api/v1/roles").set(auth).send({
+    code: "bad_perm",
+    name: "Bad permission",
+    permissions: ["not.a.permission"],
+  });
+  assert.equal(unknown.status, 400, JSON.stringify(unknown.body));
+  assert.match(JSON.stringify(unknown.body), /not\.a\.permission/);
+
+  const limited = await request(app).post("/api/v1/roles").set(auth).send({
+    code: "role_clerk",
+    name: "Role clerk",
+    permissions: ["roles.create", "roles.view"],
+  });
+  assert.equal(limited.status, 201, JSON.stringify(limited.body));
+  const user = await request(app).post("/api/v1/users").set(auth).send({
+    email: "role.clerk@example.com",
+    displayName: "Role clerk",
+    isActive: true,
+    password: "Limited-User-1",
+    roleIds: [limited.body.id],
+    branchIds: [],
+  });
+  assert.equal(user.status, 201, JSON.stringify(user.body));
+  const login = await request(app).post("/api/v1/auth/login").send({
+    email: "role.clerk@example.com",
+    password: "Limited-User-1",
+  });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  const changed = await request(app)
+    .post("/api/v1/auth/change-password")
+    .set("Authorization", `Bearer ${login.body.token}`)
+    .send({ currentPassword: "Limited-User-1", newPassword: "Limited-User-2" });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  const denied = await request(app)
+    .post("/api/v1/roles")
+    .set("Authorization", `Bearer ${changed.body.token}`)
+    .send({ code: "too_wide", name: "Too wide", permissions: ["roles.create", "journals.post"] });
+  assert.equal(denied.status, 403, JSON.stringify(denied.body));
+  assert.match(String(denied.body.error?.message ?? ""), /journals\.post/);
+  const afterDeny = await request(app).get("/api/v1/roles").set(auth);
+  assert.equal(afterDeny.body.data.some((role: { code: string }) => role.code === "too_wide"), false);
+});

@@ -3,6 +3,7 @@ import { withTransaction } from "../../db/transaction";
 import { writeAudit } from "../../shared/audit";
 import { AppError, one } from "../../shared/errors";
 import { COMPANY_ADMIN_ROLE, PERMISSION_CODES } from "../auth/auth.permissions";
+import { unknownPermissionMessage } from "./roles.schemas";
 import type { AuthUser, RequestMeta } from "../auth/auth.types";
 import {
   insertRole,
@@ -36,8 +37,9 @@ export async function createRole(
   input: { code: string; name: string; description?: string | null; permissions: string[] },
   meta: RequestMeta,
 ) {
-  assertKnownPermissions(input.permissions);
-  assertWithinPrivilege(meta.actor, input.permissions);
+  const permissions = uniquePermissions(input.permissions);
+  assertKnownPermissions(permissions);
+  assertWithinPrivilege(meta.actor, permissions);
   if (input.code.trim() === COMPANY_ADMIN_ROLE) {
     throw new AppError(409, "SYSTEM_ROLE", "The Company Admin role already exists.");
   }
@@ -49,8 +51,9 @@ export async function createRole(
       description: string | null;
       is_system: boolean;
     };
-    await replaceRolePermissions(client, role.id, input.permissions);
-    const saved = { ...mapRole(role), permissions: [...input.permissions].sort() };
+    const stored = await replaceRolePermissions(client, role.id, permissions);
+    assertStoredPermissions(permissions, stored);
+    const saved = { ...mapRole(role), permissions: stored.sort() };
     await writeAudit(client, event(meta, "roles.create", role.id, "Created role", null, saved));
     return saved;
   });
@@ -61,8 +64,9 @@ export async function updateRole(
   input: { name: string; description?: string | null; permissions: string[] },
   meta: RequestMeta,
 ) {
-  assertKnownPermissions(input.permissions);
-  assertWithinPrivilege(meta.actor, input.permissions);
+  const permissions = uniquePermissions(input.permissions);
+  assertKnownPermissions(permissions);
+  assertWithinPrivilege(meta.actor, permissions);
   return withTransaction(async (client) => {
     const role = one((await lockRole(client, id)).rows, "Role not found.") as {
       id: string;
@@ -76,23 +80,39 @@ export async function updateRole(
     }
     const description = blank(input.description);
     await saveRole(client, id, input.name.trim(), description);
-    await replaceRolePermissions(client, id, input.permissions);
-    const saved = { ...mapRole({ ...role, name: input.name.trim(), description }), permissions: [...input.permissions].sort() };
+    const stored = await replaceRolePermissions(client, id, permissions);
+    assertStoredPermissions(permissions, stored);
+    const saved = { ...mapRole({ ...role, name: input.name.trim(), description }), permissions: stored.sort() };
     await writeAudit(client, event(meta, "roles.update", id, "Updated role", { code: role.code, name: role.name }, saved));
     return saved;
   });
 }
 
+function uniquePermissions(codes: string[]) {
+  return [...new Set(codes)];
+}
+
 function assertKnownPermissions(codes: string[]) {
-  if (codes.some((code) => !PERMISSION_CODES.has(code))) {
-    throw new AppError(400, "VALIDATION", "Unknown permission code.");
+  const unknown = codes.filter((code) => !PERMISSION_CODES.has(code));
+  if (unknown.length > 0) {
+    throw new AppError(400, "VALIDATION", unknownPermissionMessage(unknown), { permissions: unknown });
+  }
+}
+
+function assertStoredPermissions(requested: string[], stored: string[]) {
+  const saved = new Set(stored);
+  const missing = requested.filter((code) => !saved.has(code));
+  if (missing.length > 0) {
+    throw new AppError(400, "VALIDATION", unknownPermissionMessage(missing), { permissions: missing });
   }
 }
 
 function assertWithinPrivilege(actor: AuthUser, codes: string[]) {
   if (actor.isCompanyAdmin) return;
-  if (codes.some((code) => !actor.permissions.includes(code))) {
-    throw new AppError(403, "PRIVILEGE_CEILING", "You cannot grant a permission you do not have.");
+  const denied = codes.filter((code) => !actor.permissions.includes(code));
+  if (denied.length > 0) {
+    const listed = denied.join(", ");
+    throw new AppError(403, "PRIVILEGE_CEILING", `You cannot grant ${listed}.`, { permissions: denied });
   }
 }
 

@@ -360,20 +360,25 @@ The table columns are **Name**, **Email**, **Roles**, and **Status** (`Active` o
 
 ### Roles
 
-Menu: **Roles**. Route: `/roles`. View permission: `roles.view`. Create permission: `roles.manage`.
+Menu: **Roles**. Route: `/roles`. View permission: `roles.view`. Create permission: `roles.create`. Update permission: `roles.update`.
 
 **Purpose.** Create a named set of permissions for staff who should not have full access.
 
 **Who uses it.** A company administrator.
 
-The **Company Admin** role always has every permission. The screen says a system role’s permissions stay complete. There is no button to edit an existing role.
+The **Company Admin** role always has every permission. The screen says a system role’s permissions stay complete. Press **Edit** on another role to load its saved permissions into the form. The code cannot be changed after the role is created.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
-| Code | Yes | Lowercase letters, digits, and underscores, up to 40 characters. | Example: `sales_clerk` | The short id of the role. |
-| Name | Yes | 1 to 80 characters. | Example: `Sales clerk` | The name shown when you assign the role to a user. |
-| Permission checkboxes | Optional | The label is the permission code, such as `invoices.post`. | Tick only the actions this job should perform. | Each ticked code is granted to people who have this role. |
-| Create role | Button | — | — | Creates the role. |
+| Code | Yes | Letters, digits, and underscores, up to 40 characters. Uppercase is allowed. | Example: `SmgrSale` | The short id of the role. It must be unique. |
+| Name | Yes | 1 to 80 characters. | Example: `Manager Sales` | The name shown when you assign the role to a user. |
+| Select all permissions | Button | — | — | Ticks every permission in the catalog. |
+| Clear all | Button | — | — | Clears every tick. |
+| Group checkbox | Optional | One checkbox per group, such as **Select all Sales permissions**. | Tick **Sales** | Ticks or clears every permission in that group. A dash means only some permissions in the group are ticked. |
+| Permission checkboxes | Optional | Grouped by Setup, Access, Ledger, Sales, Purchasing, and Reports. The label is the plain description. The code is shown beside it. | Tick `Post sales invoices` (`invoices.post`) | Each ticked code is granted. Saving does not drop a ticked permission. |
+| Create role / Save role | Button | — | — | Creates the role, or saves the role you are editing. |
+
+If the code or a permission is rejected, the page names the field or the permission. A person who is not Company Admin cannot grant a permission they do not hold.
 
 Existing roles are listed with the name, the code, and either “System role. Permissions stay complete.” or the permission codes.
 
@@ -1027,7 +1032,6 @@ These items are not on the pages described above. Do not expect to complete them
 | Inventory value and cost of goods sold | Not calculated. Purchases post to the purchase expense account. Costing and valuation belong to a later phase, after the costing method is chosen. |
 | ATL tracking and FBR/IRIS connections | Not stored and not connected. |
 | Edit or deactivate a user, and assign branches | The Users page describes a later edit, but no edit form is shown. New users can access every branch. |
-| Edit an existing role | You can create a role and read existing ones. There is no edit button. |
 | Edit, deactivate, or delete an account | You can add an account and read the list. |
 | Edit a branch, or enter its city | You can add a branch. The list shows code, name, and active status. |
 | Retire a tax code | You can add a code and set its sales and purchase tax accounts. There is no retire button. |

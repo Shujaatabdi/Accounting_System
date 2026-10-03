@@ -53,6 +53,10 @@ th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: 
 .banner.ok { background: #e5f6ec; color: #1d5c38; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px 14px; }
 .checks label { display: flex; gap: 6px; align-items: center; }
+.permission-groups { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
+.permission-group { border: 1px solid #dde3ea; border-radius: 8px; padding: 12px; }
+.permission-group legend { font-weight: 600; padding: 0 4px; }
+.permission-code { color: #5c6b7a; font-size: 12px; }
 .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(420px, 100%); }
 

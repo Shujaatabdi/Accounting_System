@@ -62,6 +62,10 @@ Health: `GET /health`, `GET /health/ready`.
 
 `sourceType` is `manual` or `opening_balance`. Reversals are created only by `POST /journals/:id/reverse` with `{ "reason", "postingDate?" }`. A manual journal cannot use the receivable control account or the payable control account. An opening-balance receivable line must match `PUT /customers/opening-details` before it can be submitted. An opening-balance payable line must match `PUT /suppliers/opening-details`. Do not reverse an invoice, receipt, allocation, customer return, supplier bill, supplier payment, supplier-payment allocation, or supplier return from the journals endpoint; reverse the source document.
 
+## Roles
+
+`POST /roles` accepts `code`, `name`, and `permissions`. A code uses letters, digits, and underscores, up to 40 characters, and stays unique. `SmgrSale` is valid. Unknown permission codes and a grant outside the caller’s own permissions are rejected with the permission named in the error. Validation responses include `error.details.fieldErrors`. The saved role keeps every selected permission.
+
 ## Sales documents
 
 Invoice, receipt, and return bodies use the same draft, submit, approve, and post flow as journals. Amounts are decimal strings. A linked return line sends `invoiceLineId` and `quantity`. An unreferenced return also requires `customer_returns.create_unreferenced`, a reason, product, price, tax code, and return account. Posting a return locks the source invoice line and rejects a quantity or value above the remainder. Reversing an invoice fails while a posted allocation or posted return still applies. The default receipt treatment needs `customerAdvanceAccountId` on sales settings. Receivables reports return `409` when customer detail does not equal the receivable control account. Aging omits unapplied advances.
