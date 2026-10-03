@@ -3,8 +3,8 @@ import { withTransaction } from "../../db/transaction";
 import { writeAudit } from "../../shared/audit";
 import { one } from "../../shared/errors";
 import { pageResult, type Page } from "../../shared/http/pagination";
-import type { RequestMeta } from "../auth/auth.types";
-import { countBranches, insertBranch, lockBranch, saveBranch, selectBranches } from "./branches.repository";
+import type { AuthUser, RequestMeta } from "../auth/auth.types";
+import { countBranches, insertBranch, lockBranch, saveBranch, selectAccessibleBranches, selectBranches } from "./branches.repository";
 import type { BranchInput } from "./branches.types";
 
 export async function listBranches(page: Page, search?: string) {
@@ -14,6 +14,11 @@ export async function listBranches(page: Page, search?: string) {
   const total = await countBranches({ query }, where, params);
   const rows = await selectBranches({ query }, where, [...params, page.pageSize, page.offset]);
   return pageResult(rows.rows.map(mapBranch), Number(total.rows[0].count), page);
+}
+
+export async function listAccessibleBranches(actor: AuthUser) {
+  const rows = await selectAccessibleBranches({ query }, actor.branchIds);
+  return rows.rows.map((row) => ({ id: row.id, code: row.code, name: row.name, isActive: row.is_active }));
 }
 
 export async function createBranch(input: BranchInput, meta: RequestMeta) {

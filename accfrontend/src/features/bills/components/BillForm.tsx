@@ -29,7 +29,7 @@ export default function BillForm() {
   useEffect(() => {
     Promise.all([
       api<{ data: Option[] }>("/api/v1/suppliers?pageSize=100&active=true"),
-      api<{ data: Option[] }>("/api/v1/branches?pageSize=100"),
+      api<{ data: Option[] }>("/api/v1/branches/accessible"),
       api<{ data: Option[] }>("/api/v1/products?pageSize=100&active=true"),
       api<{ data: TaxCode[] }>("/api/v1/tax-codes").catch(() => ({ data: [] as TaxCode[] })),
     ]).then(([supplierRows, branchRows, productRows, taxRows]) => {

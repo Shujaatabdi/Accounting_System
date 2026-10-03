@@ -2,10 +2,14 @@ import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../shared/errors";
 
 export function requirePermission(code: string) {
+  return requireAnyPermission([code]);
+}
+
+export function requireAnyPermission(codes: string[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     const user = req.user;
     if (!user) return next(new AppError(401, "UNAUTHENTICATED", "Sign in is required."));
-    if (user.isCompanyAdmin || user.permissions.includes(code)) return next();
+    if (user.isCompanyAdmin || codes.some((code) => user.permissions.includes(code))) return next();
     return next(new AppError(403, "FORBIDDEN", "You do not have permission for this action."));
   };
 }

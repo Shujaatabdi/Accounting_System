@@ -6,6 +6,16 @@ export async function countBranches(db: Sql, where: string, params: unknown[]) {
   return db.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM branches ${where}`, params);
 }
 
+export async function selectAccessibleBranches(db: Sql, branchIds: string[] | null) {
+  return db.query<{ id: string; code: string; name: string; is_active: boolean }>(
+    `SELECT id, code, name, is_active
+       FROM branches
+      WHERE ($1::uuid[] IS NULL OR id = ANY($1::uuid[]))
+      ORDER BY code`,
+    [branchIds],
+  );
+}
+
 export async function selectBranches(db: Sql, where: string, params: unknown[]) {
   return db.query(
     `SELECT ${BRANCH_COLUMNS} FROM branches ${where} ORDER BY code LIMIT $${params.length - 1} OFFSET $${params.length}`,

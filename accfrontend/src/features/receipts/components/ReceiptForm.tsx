@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api/client";
+import { ApiError, api } from "@/lib/api/client";
 import { todayIso } from "@/lib/formatting";
 
 type Option = { id: string; code: string; name?: string; displayName?: string; accountType?: string };
@@ -20,19 +20,36 @@ export default function ReceiptForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const notes: string[] = [];
+    async function loadCustomers() {
+      const rows = await api<{ data: Option[] }>("/api/v1/customers?pageSize=100&active=true");
+      setCustomers(rows.data);
+      if (rows.data[0]) setCustomerId(rows.data[0].id);
+    }
+    async function loadBranches() {
+      const rows = await api<{ data: Option[] }>("/api/v1/branches/accessible");
+      setBranches(rows.data);
+      if (rows.data[0]) setBranchId(rows.data[0].id);
+    }
+    async function loadAccounts() {
+      try {
+        const rows = await api<{ data: Option[] }>("/api/v1/accounts?postable=true&pageSize=100");
+        const assets = rows.data.filter((account) => account.accountType === "asset");
+        setAccounts(assets);
+        if (assets[0]) setCashAccountId(assets[0].id);
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 403) {
+          notes.push("The cash account list requires accounts.view.");
+          return;
+        }
+        notes.push(caught instanceof Error ? caught.message : "Could not load accounts.");
+      }
+    }
     Promise.all([
-      api<{ data: Option[] }>("/api/v1/customers?pageSize=100&active=true"),
-      api<{ data: Option[] }>("/api/v1/branches?pageSize=100"),
-      api<{ data: Option[] }>("/api/v1/accounts?postable=true&pageSize=100"),
-    ]).then(([customerRows, branchRows, accountRows]) => {
-      setCustomers(customerRows.data);
-      setBranches(branchRows.data);
-      const assets = accountRows.data.filter((account) => account.accountType === "asset");
-      setAccounts(assets);
-      if (customerRows.data[0]) setCustomerId(customerRows.data[0].id);
-      if (branchRows.data[0]) setBranchId(branchRows.data[0].id);
-      if (assets[0]) setCashAccountId(assets[0].id);
-    }).catch((caught: Error) => setError(caught.message));
+      loadCustomers().catch((caught: unknown) => notes.push(caught instanceof Error ? caught.message : "Could not load customers.")),
+      loadBranches().catch((caught: unknown) => notes.push(caught instanceof Error ? caught.message : "Could not load branches.")),
+      loadAccounts(),
+    ]).then(() => { if (notes.length > 0) setError(notes.join(" ")); });
   }, []);
 
   async function onSubmit(event: FormEvent) {

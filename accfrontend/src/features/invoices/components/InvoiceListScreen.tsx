@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api/client";
+import { can } from "@/lib/auth/session";
 
 type Invoice = { id: string; invoiceNumber: string; customerName: string; invoiceDate: string; dueDate: string; status: string; total: string };
 
 export default function InvoiceListScreen() {
+  const auth = useAuth();
   const [rows, setRows] = useState<Invoice[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -17,7 +20,7 @@ export default function InvoiceListScreen() {
       <h1 className="page-title">Invoices</h1>
       <p className="lede">Posted invoices are reversed, not edited. A reversal waits until receipts are unallocated and returns are reversed.</p>
       {error ? <div className="banner error">{error}</div> : null}
-      <p><Link className="btn" href="/invoices/new">New invoice</Link></p>
+      {can(auth.user, "invoices.create") ? <p><Link className="btn" href="/invoices/new">New invoice</Link></p> : null}
       <div className="card">
         <table>
           <thead><tr><th>Number</th><th>Customer</th><th>Date</th><th>Due</th><th>Status</th><th>Total</th></tr></thead>

@@ -30,7 +30,7 @@ export default function ReturnsScreen() {
     Promise.all([
       load(),
       api<{ data: Option[] }>("/api/v1/customers?pageSize=100&active=true"),
-      api<{ data: Option[] }>("/api/v1/branches?pageSize=100"),
+      api<{ data: Option[] }>("/api/v1/branches/accessible"),
     ]).then(([, customerRows, branchRows]) => {
       setCustomers(customerRows.data);
       setBranches(branchRows.data);

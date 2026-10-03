@@ -24,7 +24,7 @@ Health: `GET /health`, `GET /health/ready`.
 | Numbering | `GET /numbering`, `PUT /numbering/:docType` |
 | Country profile | `GET /accounting-profile`, `PUT /accounting-profile` |
 | Tax codes | `GET /tax-codes`, `POST /tax-codes`, `PUT /tax-codes/:id`, `POST /tax-codes/:id/retire` |
-| Branches | `GET /branches`, `POST /branches`, `PUT /branches/:id` |
+| Branches | `GET /branches`, `GET /branches/accessible`, `POST /branches`, `PUT /branches/:id` |
 | Users | `GET /users`, `POST /users`, `PUT /users/:id` |
 | Roles | `GET /permissions`, `GET /roles`, `POST /roles`, `PUT /roles/:id` |
 | Accounts | `GET /accounts`, `POST /accounts`, `PUT /accounts/:id`, `DELETE /accounts/:id` |
@@ -65,6 +65,8 @@ Health: `GET /health`, `GET /health/ready`.
 ## Roles
 
 `POST /roles` accepts `code`, `name`, and `permissions`. A code uses letters, digits, and underscores, up to 40 characters, and stays unique. `SmgrSale` is valid. Unknown permission codes and a grant outside the caller’s own permissions are rejected with the permission named in the error. Validation responses include `error.details.fieldErrors`. The saved role keeps every selected permission.
+
+`PUT /users/:id` accepts the same fields as create. Omit `password` to leave the current password unchanged. Responses do not include the password hash. `GET /branches` requires `branches.view`. `GET /branches/accessible` returns the branches the signed-in user may use on a document: every branch when none are assigned, or only the assigned branches. It allows a document permission such as `invoices.create` and does not require `branches.view`.
 
 ## Sales documents
 

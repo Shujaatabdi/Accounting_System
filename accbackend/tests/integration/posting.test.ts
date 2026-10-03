@@ -684,3 +684,142 @@ test("an administrator can save the sales manager role without dropping permissi
   const afterDeny = await request(app).get("/api/v1/roles").set(auth);
   assert.equal(afterDeny.body.data.some((role: { code: string }) => role.code === "too_wide"), false);
 });
+
+const SALES_FORM_PERMISSIONS = [
+  "customer_returns.approve",
+  "customer_returns.create",
+  "customer_returns.create_unreferenced",
+  "customer_returns.post",
+  "customer_returns.reverse",
+  "customer_returns.submit",
+  "customer_returns.update",
+  "customer_returns.view",
+  "customer_returns.void",
+  "customers.create",
+  "customers.update",
+  "customers.view",
+  "invoices.approve",
+  "invoices.create",
+  "invoices.override_credit_limit",
+  "invoices.override_due_date",
+  "invoices.post",
+  "invoices.reverse",
+  "invoices.submit",
+  "invoices.update",
+  "invoices.view",
+  "invoices.void",
+  "products.create",
+  "products.update",
+  "products.view",
+  "receipts.allocate",
+  "receipts.approve",
+  "receipts.create",
+  "receipts.post",
+  "receipts.reverse",
+  "receipts.submit",
+  "receipts.update",
+  "receipts.view",
+  "receipts.void",
+];
+
+test("a sales manager can load invoice choices and an admin can edit a user without changing the password", async () => {
+  const auth = { Authorization: `Bearer ${token}` };
+  const role = await request(app).post("/api/v1/roles").set(auth).send({
+    code: "sales_form",
+    name: "Sales form",
+    permissions: SALES_FORM_PERMISSIONS,
+  });
+  assert.equal(role.status, 201, JSON.stringify(role.body));
+  const branches = await request(app).get("/api/v1/branches?pageSize=20").set(auth);
+  assert.equal(branches.status, 200);
+  const assignedBranch = branches.body.data[0].id as string;
+  const extra = await request(app).post("/api/v1/branches").set(auth).send({ code: "BR-JOJO", name: "Other branch", isActive: true });
+  assert.equal(extra.status, 201, JSON.stringify(extra.body));
+  const created = await request(app).post("/api/v1/users").set(auth).send({
+    email: "jojo.sales@example.com",
+    displayName: "Jojo",
+    isActive: true,
+    password: "Limited-User-1",
+    roleIds: [role.body.id],
+    branchIds: [assignedBranch],
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.passwordHash, undefined);
+  assert.equal(JSON.stringify(created.body).includes("password_hash"), false);
+
+  const login = await request(app).post("/api/v1/auth/login").send({ email: "jojo.sales@example.com", password: "Limited-User-1" });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  const changed = await request(app)
+    .post("/api/v1/auth/change-password")
+    .set("Authorization", `Bearer ${login.body.token}`)
+    .send({ currentPassword: "Limited-User-1", newPassword: "Limited-User-2" });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  const jojo = { Authorization: `Bearer ${changed.body.token}` };
+  assert.equal(login.body.user.permissions.includes("invoices.create"), true);
+  assert.equal(login.body.user.permissions.includes("branches.view"), false);
+  assert.deepEqual(login.body.user.branchIds, [assignedBranch]);
+
+  assert.equal((await request(app).get("/api/v1/branches").set(jojo)).status, 403);
+  const choices = await request(app).get("/api/v1/branches/accessible").set(jojo);
+  assert.equal(choices.status, 200, JSON.stringify(choices.body));
+  assert.deepEqual(choices.body.data.map((row: { id: string }) => row.id), [assignedBranch]);
+  const customers = await request(app).get("/api/v1/customers?pageSize=100&active=true").set(jojo);
+  assert.equal(customers.status, 200, JSON.stringify(customers.body));
+  assert.equal(customers.body.data.some((row: { code: string }) => row.code === "C001"), true);
+  const products = await request(app).get("/api/v1/products?pageSize=100&active=true").set(jojo);
+  assert.equal(products.status, 200, JSON.stringify(products.body));
+  const product = products.body.data.find((row: { sku: string }) => row.sku === "SVC-1");
+  assert.ok(product);
+  assert.equal((await request(app).get("/api/v1/tax-codes").set(jojo)).status, 403);
+  const years = await request(app).get("/api/v1/fiscal-years").set(auth);
+  const invoice = await request(app).post("/api/v1/invoices").set(jojo).send({
+    customerId: customers.body.data.find((row: { code: string }) => row.code === "C001").id,
+    branchId: assignedBranch,
+    invoiceDate: years.body.data[0].periods[0].startDate,
+    lines: [{ productId: product.id, quantity: "1", unitPrice: "10.00" }],
+  });
+  assert.equal(invoice.status, 201, JSON.stringify(invoice.body));
+
+  const clerkLogin = await request(app).post("/api/v1/auth/login").send({
+    email: "role.clerk@example.com",
+    password: "Limited-User-2",
+  });
+  assert.equal(clerkLogin.status, 200, JSON.stringify(clerkLogin.body));
+  assert.equal((await request(app).get("/api/v1/branches/accessible").set("Authorization", `Bearer ${clerkLogin.body.token}`)).status, 403);
+
+  const updated = await request(app).put(`/api/v1/users/${created.body.id}`).set(auth).send({
+    email: "jojo.sales@example.com",
+    displayName: "Jojo Updated",
+    isActive: false,
+    roleIds: [role.body.id],
+    branchIds: [assignedBranch],
+  });
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.equal(updated.body.displayName, "Jojo Updated");
+  assert.equal(updated.body.isActive, false);
+  assert.deepEqual(updated.body.branchIds, [assignedBranch]);
+  assert.equal(updated.body.passwordHash, undefined);
+  const listed = await request(app).get("/api/v1/users?pageSize=100").set(auth);
+  const saved = listed.body.data.find((row: { email: string }) => row.email === "jojo.sales@example.com");
+  assert.equal(saved.displayName, "Jojo Updated");
+  assert.equal(saved.isActive, false);
+  assert.equal(JSON.stringify(saved).includes("Limited-User"), false);
+  const stillSignsIn = await request(app).post("/api/v1/auth/login").send({
+    email: "jojo.sales@example.com",
+    password: "Limited-User-2",
+  });
+  assert.equal(stillSignsIn.status, 401);
+  const restored = await request(app).put(`/api/v1/users/${created.body.id}`).set(auth).send({
+    email: "jojo.sales@example.com",
+    displayName: "Jojo Updated",
+    isActive: true,
+    roleIds: [role.body.id],
+    branchIds: [assignedBranch],
+  });
+  assert.equal(restored.status, 200, JSON.stringify(restored.body));
+  const signsIn = await request(app).post("/api/v1/auth/login").send({
+    email: "jojo.sales@example.com",
+    password: "Limited-User-2",
+  });
+  assert.equal(signsIn.status, 200, JSON.stringify(signsIn.body));
+});

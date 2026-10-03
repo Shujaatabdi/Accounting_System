@@ -338,13 +338,15 @@ The period table has no headings. Columns are:
 
 ### Users
 
-Menu: **Users**. Route: `/users`. View permission: `users.view`. Create permission: `users.create`.
+Menu: **Users**. Route: `/users`. View permission: `users.view`. Create permission: `users.create`. Update permission: `users.update`.
 
-**Purpose.** Add people who can sign in, and give them roles.
+**Purpose.** Add people who can sign in, and give them roles and branch access.
 
-**Who uses it.** A company administrator.
+**Who uses it.** A company administrator, or someone whose role includes the matching user permission.
 
-The page says to leave branches empty to allow every branch, and to assign branches on a later edit. This screen has no edit form and no branch list, so a new user is created with access to every branch. You cannot restrict a branch from this screen.
+Press **Edit** on a user to change the name, email, active status, roles, and branches. The password box is blank. Leave it blank to keep the current password. The page never shows the stored password. **Create user** is shown for `users.create`. **Edit** is shown for `users.update`.
+
+Leave every branch unticked to allow every branch. Tick branches to limit that person to those locations. Changing branch access on this page requires `branches.view`.
 
 There is no search box. Up to 100 users are listed.
 
@@ -352,11 +354,13 @@ There is no search box. Up to 100 users are listed.
 | --- | --- | --- | --- | --- |
 | Name | Yes | 1 to 160 characters. | Example: `Amina Khan` | The name in the top bar and on the user list. |
 | Email | Yes | A valid email. | Example: `amina.khan@northwind.example` | The sign-in name. |
-| Password | Yes | 10 to 200 characters, with a letter and a number. | Do not store the real password in a document. | The person uses it at sign-in. |
-| Role checkboxes | Optional | One checkbox per role. The label is the role name. | Example: tick `Company Admin` only for an administrator. | The role supplies permissions. A user cannot be given a permission the creator does not have. |
-| Create user | Button | — | — | Creates an active user. It does not post a journal. |
+| Password / New password | Required for a new user | 10 to 200 characters, with a letter and a number. Leave blank when editing. | Do not store the real password in a document. | A new password replaces the old one. A blank edit leaves it unchanged. |
+| Active | On edit | Ticked or clear. | Clear the box to deactivate. | An inactive user cannot sign in. |
+| Role checkboxes | Optional | One checkbox per role. The label is the role name. | Example: tick `Sales form` for a sales manager. | The role supplies permissions. A user cannot be given a permission the editor does not have. |
+| Branch checkboxes | Optional | One checkbox per branch. | Tick one branch. | Limits documents to those branches. None ticked means every branch. |
+| Create user / Save user | Button | — | — | Creates the user, or saves the user you are editing. It does not post a journal. |
 
-The table columns are **Name**, **Email**, **Roles**, and **Status** (`Active` or `Inactive`). There is no button to deactivate a user or change a role from this screen, even though the system can store those changes.
+The table columns are **Name**, **Email**, **Roles**, and **Status** (`Active` or `Inactive`). A rejected save names the field or the permission.
 
 ### Roles
 
@@ -568,7 +572,7 @@ Menu: **Invoices**. Route: `/invoices`. View permission: `invoices.view`.
 
 **Prerequisites.** An active customer, an active product with a sales account, a branch, an open fiscal period, and a receivable control account on **Sales settings**.
 
-The list has no search box and shows up to 100 invoices. **New invoice** opens `/invoices/new`.
+The list has no search box and shows up to 100 invoices. **New invoice** is shown for `invoices.create` and opens `/invoices/new`.
 
 | Column | Meaning |
 | --- | --- |
@@ -581,7 +585,7 @@ The list has no search box and shows up to 100 invoices. **New invoice** opens `
 
 #### New invoice
 
-The form saves one line. It shows a discount and a tax code. It does not show notes, a due date, or **Add line**. Choosing a product fills that product’s current tax code. You can choose another active code or **No tax**. The sales tax account is chosen on **Tax codes**, not here. The screen sends the code you chose, so a later change to the product does not replace it.
+The form saves one line. It shows a discount and a tax code. It does not show notes, a due date, or **Add line**. Choosing a product fills that product’s current tax code. You can choose another active code or **No tax** when the role includes `tax_codes.view`. Without that permission, the form keeps the product’s tax code and says so. The branch list shows the branches assigned to the signed-in user, or every branch when none are assigned. It does not require `branches.view`. Customers and products load with `customers.view` and `products.view`. The sales tax account is chosen on **Tax codes**, not here. When you can choose a tax code, the screen sends the code you chose, so a later change to the product does not replace it.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -1031,7 +1035,6 @@ These items are not on the pages described above. Do not expect to complete them
 | Inventory quantity and stock movements | Not calculated. A product type of Stock is only a label. Supplier bills and returns do not receive or issue quantity. That handling belongs to a later phase. |
 | Inventory value and cost of goods sold | Not calculated. Purchases post to the purchase expense account. Costing and valuation belong to a later phase, after the costing method is chosen. |
 | ATL tracking and FBR/IRIS connections | Not stored and not connected. |
-| Edit or deactivate a user, and assign branches | The Users page describes a later edit, but no edit form is shown. New users can access every branch. |
 | Edit, deactivate, or delete an account | You can add an account and read the list. |
 | Edit a branch, or enter its city | You can add a branch. The list shows code, name, and active status. |
 | Retire a tax code | You can add a code and set its sales and purchase tax accounts. There is no retire button. |

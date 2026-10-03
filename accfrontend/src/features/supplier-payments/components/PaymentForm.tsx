@@ -27,7 +27,7 @@ export default function PaymentForm() {
   useEffect(() => {
     Promise.all([
       api<{ data: Option[] }>("/api/v1/suppliers?pageSize=100&active=true"),
-      api<{ data: Option[] }>("/api/v1/branches?pageSize=100"),
+      api<{ data: Option[] }>("/api/v1/branches/accessible"),
       api<{ data: Account[] }>("/api/v1/accounts?postable=true&pageSize=100"),
     ]).then(([supplierRows, branchRows, accountRows]) => {
       setSuppliers(supplierRows.data);
