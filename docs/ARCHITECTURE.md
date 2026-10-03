@@ -66,6 +66,15 @@ accbackend/src/
 │   ├── periods/
 │   ├── journals/
 │   ├── ledger/
+│   ├── customers/
+│   ├── products/
+│   ├── invoices/
+│   ├── receipts/
+│   ├── customer-returns/
+│   ├── suppliers/
+│   ├── bills/
+│   ├── supplier-payments/
+│   ├── supplier-returns/
 │   └── reports/
 └── types/
 ```
@@ -108,6 +117,15 @@ accfrontend/src/
 │       ├── accounts/
 │       ├── periods/
 │       ├── journals/
+│       ├── customers/
+│       ├── products/
+│       ├── invoices/
+│       ├── receipts/
+│       ├── customer-returns/
+│       ├── suppliers/
+│       ├── bills/
+│       ├── supplier-payments/
+│       ├── supplier-returns/
 │       └── reports/
 ├── features/
 │   ├── auth/
@@ -118,6 +136,15 @@ accfrontend/src/
 │   ├── accounts/
 │   ├── periods/
 │   ├── journals/
+│   ├── customers/
+│   ├── products/
+│   ├── invoices/
+│   ├── receipts/
+│   ├── customer-returns/
+│   ├── suppliers/
+│   ├── bills/
+│   ├── supplier-payments/
+│   ├── supplier-returns/
 │   └── reports/
 ├── components/layout/
 ├── lib/api/
@@ -134,9 +161,11 @@ Shared UI primitives live in `components/`. There is no Metronic code in this re
 
 ## What is implemented
 
-Phase 1 and Phase 2 are implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, balance sheet, customers, products, sales invoices, receipts, customer returns, and receivables reports.
+Phase 1, Phase 2, and Phase 3 are implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, balance sheet, customers, products, sales invoices, receipts, customer returns, receivables reports, suppliers, supplier bills, supplier payments, supplier returns, and payables reports.
 
-Not implemented: suppliers, purchasing, inventory quantities, inventory valuation, cost of goods sold, costing, and manufacturing. Costing method is undecided.
+Purchasing settings live in `modules/company` and are registered from `company.routes.ts`. Supplier bills, payments, and returns call `modules/ledger` to post or reverse. They do not copy the posting rules.
+
+Not implemented: warehouse quantities, stock movements, inventory valuation, cost of goods sold, costing, and manufacturing. Stock receipt and return quantity handling is Phase 4. Inventory costing and valuation are Phase 5. The costing method is undecided. ATL tracking and FBR/IRIS connections are not implemented.
 
 ## Deployment
 

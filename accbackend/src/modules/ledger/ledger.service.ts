@@ -101,7 +101,7 @@ export async function postSystemJournal(
     entryDate: string;
     description: string;
     reference: string | null;
-    sourceType: "invoice" | "receipt" | "receipt_allocation" | "customer_return";
+    sourceType: "invoice" | "receipt" | "receipt_allocation" | "customer_return" | "supplier_bill" | "supplier_payment" | "supplier_payment_allocation" | "supplier_return";
     sourceId: string;
     createdBy: string;
     lines: Array<{

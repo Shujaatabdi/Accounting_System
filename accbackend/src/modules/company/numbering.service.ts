@@ -5,7 +5,7 @@ import { AppError, one } from "../../shared/errors";
 import type { RequestMeta } from "../auth/auth.types";
 import { allocateSequence, listSequenceRows, lockSequence, saveSequence } from "./numbering.repository";
 
-const DOC_TYPES = new Set(["journal", "invoice", "receipt", "customer_return"]);
+const DOC_TYPES = new Set(["journal", "invoice", "receipt", "customer_return", "bill", "supplier_payment", "supplier_return"]);
 
 export async function allocateNumber(db: Sql, docType: string): Promise<string> {
   const result = await allocateSequence(db, docType);

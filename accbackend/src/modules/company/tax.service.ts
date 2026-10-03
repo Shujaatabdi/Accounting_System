@@ -9,7 +9,6 @@ import { selectTimezone } from "./company.repository";
 import { selectPostableAccount } from "./sales.repository";
 import {
   closeProfile,
-  findAccounts,
   findTaxOverlap,
   insertProfile,
   insertTax,
@@ -43,8 +42,7 @@ export async function createTaxCode(
   assertIsoDate(input.effectiveFrom);
   assertRate(input.ratePercent);
   return withTransaction(async (client) => {
-    await assertMappedSalesTaxAccount(client, input.salesAccountId ?? null, decimal(input.ratePercent).gt(0));
-    await assertAccounts(client, [input.purchaseAccountId]);
+    await assertTaxMappings(client, input.salesAccountId ?? null, input.purchaseAccountId ?? null, decimal(input.ratePercent).gt(0));
     const overlap = await findTaxOverlap(client, input.code.trim(), input.effectiveFrom);
     if ((overlap.rowCount ?? 0) > 0) {
       throw new AppError(409, "OVERLAP", "That tax code already has a version covering this date. Retire it first.");
@@ -76,8 +74,7 @@ export async function updateTaxCodeAccounts(
     const before = mapTax(one((await lockTax(client, id)).rows, "Tax code not found."));
     const salesAccountId = input.salesAccountId === undefined ? before.salesAccountId : input.salesAccountId ?? null;
     const purchaseAccountId = input.purchaseAccountId === undefined ? before.purchaseAccountId : input.purchaseAccountId ?? null;
-    await assertMappedSalesTaxAccount(client, salesAccountId, decimal(before.ratePercent).gt(0) && before.isActive);
-    await assertAccounts(client, [purchaseAccountId]);
+    await assertTaxMappings(client, salesAccountId, purchaseAccountId, decimal(before.ratePercent).gt(0) && before.isActive);
     const after = mapTax(one((await updateTaxAccounts(client, id, salesAccountId, purchaseAccountId)).rows));
     await writeAudit(client, event(meta, "tax_codes.update_accounts", id, "Updated tax code accounts", before, after));
     return after;
@@ -160,11 +157,25 @@ export async function assertMappedSalesTaxAccount(db: Sql, accountId: string | n
   }
 }
 
-async function assertAccounts(db: Sql, ids: Array<string | null | undefined>) {
-  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-  if (unique.length === 0) return;
-  const found = await findAccounts(db, unique);
-  if (found.rows.length !== unique.length) throw new AppError(400, "VALIDATION", "A tax account does not exist.");
+export async function assertMappedPurchaseTaxAccount(db: Sql, accountId: string | null, required: boolean) {
+  if (!accountId) {
+    if (required) {
+      throw new AppError(400, "TAX_ACCOUNT", "Set an active asset account that is not a header on this tax code before using it on a supplier bill.");
+    }
+    return;
+  }
+  const account = one((await selectPostableAccount(db, accountId)).rows, "Account not found.");
+  if (!account.is_active || account.is_header || account.account_type !== "asset") {
+    throw new AppError(400, "TAX_ACCOUNT", "The purchase tax account must be an active asset account that is not a header.");
+  }
+}
+
+async function assertTaxMappings(db: Sql, salesAccountId: string | null, purchaseAccountId: string | null, ratePositive: boolean) {
+  if (ratePositive && !salesAccountId && !purchaseAccountId) {
+    throw new AppError(400, "TAX_ACCOUNT", "A tax code with a rate above zero needs a sales tax liability account, a purchase tax asset account, or both.");
+  }
+  await assertMappedSalesTaxAccount(db, salesAccountId, false);
+  await assertMappedPurchaseTaxAccount(db, purchaseAccountId, false);
 }
 
 function assertRate(value: string) {

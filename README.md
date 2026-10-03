@@ -2,7 +2,7 @@
 
 One-company accounting software. Each customer gets a dedicated installation with its own PostgreSQL database, Express API, and Next.js frontend. It is not a multi-tenant SaaS product.
 
-Phase 1 is the accounting foundation: company settings, users and permissions, the chart of accounts, fiscal periods, double-entry journals, and the core financial statements. Sales, purchasing, returns, inventory, banking, costing, and manufacturing are not built yet. See `docs/ROADMAP.md`.
+Phases 1 through 3 are implemented: company settings, users and permissions, the chart of accounts, fiscal periods, journals, financial statements, customers and sales, and suppliers and purchasing. Warehouse quantities, inventory valuation, banking, costing, and manufacturing are not built yet. See `docs/ROADMAP.md`.
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ npm test
 npm run test:integration
 ```
 
-`npm test` checks money, dates, journal validation, and report math without a database. `npm run test:integration` starts a temporary PostgreSQL instance and posts, blocks a silent edit, and reverses a journal.
+`npm test` checks money, dates, journal validation, report math, and supplier-payment splits without a database. `npm run test:integration` starts a temporary PostgreSQL instance and checks posting, sales documents, and supplier bills, returns, and payments.
 
 ```powershell
 cd accfrontend

@@ -26,6 +26,7 @@ export const productBody = z.object({
   baseUnitId: z.string().uuid().nullish(),
   salesAccountId: z.string().uuid(),
   returnAccountId: z.string().uuid(),
+  purchaseAccountId: z.string().uuid().nullish(),
   isActive: z.boolean(),
   notes: z.string().trim().max(2000).nullish(),
   units: z.array(z.object({
@@ -38,4 +39,14 @@ export const productBody = z.object({
 export const productListQuery = pageQuery.extend({
   search: z.string().optional(),
   active: z.enum(["true", "false"]).optional(),
+});
+
+export const productSuppliersBody = z.object({
+  suppliers: z.array(z.object({
+    supplierId: z.string().uuid(),
+    supplierItemCode: z.string().trim().max(60).nullish(),
+    purchasePrice: amount,
+    leadTimeDays: z.number().int().min(0).max(3650),
+    isPreferred: z.boolean(),
+  })).max(50),
 });

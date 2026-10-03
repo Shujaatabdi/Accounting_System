@@ -22,3 +22,15 @@ export const statementQuery = z.object({
   branchId: z.string().uuid().optional(),
   format: z.enum(["csv"]).optional(),
 });
+
+export const payablesQuery = reportQuery.extend({
+  supplierId: z.string().uuid().optional(),
+});
+
+export const supplierStatementQuery = z.object({
+  supplierId: z.string().uuid(),
+  from: isoDate,
+  to: isoDate,
+  branchId: z.string().uuid().optional(),
+  format: z.enum(["csv"]).optional(),
+});

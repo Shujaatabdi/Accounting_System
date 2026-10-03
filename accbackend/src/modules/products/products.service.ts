@@ -12,8 +12,11 @@ import {
   insertUnit,
   listCategories,
   listUnits,
+  replaceProductSuppliers,
   replaceProductUnits,
+  selectActiveSupplierIds,
   selectIncomeAccount,
+  selectProductSuppliers,
   selectProduct,
   selectProducts,
   selectProductUnits,
@@ -32,6 +35,7 @@ type ProductInput = {
   baseUnitId?: string | null;
   salesAccountId: string;
   returnAccountId: string;
+  purchaseAccountId?: string | null;
   isActive: boolean;
   notes?: string | null;
   units: Array<{ unitId: string; factor: string; isBase: boolean }>;
@@ -57,6 +61,40 @@ export async function listProducts(page: Page, filters: { search?: string; activ
 
 export async function getProduct(id: string) {
   return load({ query }, id);
+}
+
+export async function listProductSuppliers(productId: string) {
+  await load({ query }, productId);
+  return mapSupplierLinks(await selectProductSuppliers({ query }, productId));
+}
+
+export async function saveProductSuppliers(
+  productId: string,
+  input: { suppliers: Array<{ supplierId: string; supplierItemCode?: string | null; purchasePrice: string; leadTimeDays: number; isPreferred: boolean }> },
+  meta: RequestMeta,
+) {
+  return withTransaction(async (client) => {
+    await load(client, productId);
+    if (input.suppliers.filter((link) => link.isPreferred).length > 1) {
+      throw new AppError(400, "VALIDATION", "A product can have one preferred supplier.");
+    }
+    const ids = input.suppliers.map((link) => link.supplierId);
+    if (new Set(ids).size !== ids.length) throw new AppError(400, "VALIDATION", "Each supplier can be linked once.");
+    if (ids.length > 0) {
+      const found = await selectActiveSupplierIds(client, ids);
+      if (found.rows.length !== ids.length) throw new AppError(400, "VALIDATION", "Every supplier link must use an active supplier.");
+    }
+    await replaceProductSuppliers(client, productId, input.suppliers.map((link) => ({
+      supplierId: link.supplierId,
+      supplierItemCode: link.supplierItemCode?.trim() || null,
+      purchasePrice: money(link.purchasePrice),
+      leadTimeDays: link.leadTimeDays,
+      isPreferred: link.isPreferred,
+    })));
+    const saved = mapSupplierLinks(await selectProductSuppliers(client, productId));
+    await audit(client, meta, "products.suppliers", productId, "Updated supplier links for a product", null, saved);
+    return saved;
+  });
 }
 
 export async function createProduct(input: ProductInput, meta: RequestMeta) {
@@ -106,12 +144,15 @@ async function save(id: string | null, input: ProductInput, meta: RequestMeta) {
   return withTransaction(async (client) => {
     await assertIncome(client, input.salesAccountId, "The sales account must be an active income account.");
     await assertIncome(client, input.returnAccountId, "The return account must be an active income account.");
+    if (input.purchaseAccountId) {
+      await assertExpense(client, input.purchaseAccountId, "The purchase account must be an active expense account. Supplier bills do not post to an inventory asset.");
+    }
     if (input.units.filter((unit) => unit.isBase).length > 1) {
       throw new AppError(400, "VALIDATION", "A product can have one base unit.");
     }
     const values = [
       input.sku, input.name, input.description ?? null, input.itemType, input.categoryId ?? null, money(input.salesPrice),
-      input.taxCodeId ?? null, input.baseUnitId ?? null, input.salesAccountId, input.returnAccountId, input.isActive, input.notes ?? null,
+      input.taxCodeId ?? null, input.baseUnitId ?? null, input.salesAccountId, input.returnAccountId, input.purchaseAccountId ?? null, input.isActive, input.notes ?? null,
     ];
     const productId = id ?? one((await insertProduct(client, values)).rows).id;
     if (id) await updateProduct(client, id, values);
@@ -123,8 +164,16 @@ async function save(id: string | null, input: ProductInput, meta: RequestMeta) {
 }
 
 async function assertIncome(db: Sql, id: string, message: string) {
+  await assertAccountType(db, id, "income", message);
+}
+
+async function assertExpense(db: Sql, id: string, message: string) {
+  await assertAccountType(db, id, "expense", message);
+}
+
+async function assertAccountType(db: Sql, id: string, type: string, message: string) {
   const account = one((await selectIncomeAccount(db, id)).rows, "Account not found.");
-  if (!account.is_active || account.is_header || account.account_type !== "income") throw new AppError(400, "VALIDATION", message);
+  if (!account.is_active || account.is_header || account.account_type !== type) throw new AppError(400, "VALIDATION", message);
 }
 
 async function load(db: Sql, id: string) {
@@ -154,6 +203,7 @@ function mapProduct(row: {
   base_unit_id: string | null;
   sales_account_id: string;
   return_account_id: string;
+  purchase_account_id: string | null;
   is_active: boolean;
   notes: string | null;
 }) {
@@ -169,9 +219,22 @@ function mapProduct(row: {
     baseUnitId: row.base_unit_id,
     salesAccountId: row.sales_account_id,
     returnAccountId: row.return_account_id,
+    purchaseAccountId: row.purchase_account_id,
     isActive: row.is_active,
     notes: row.notes,
   };
+}
+
+function mapSupplierLinks(result: Awaited<ReturnType<typeof selectProductSuppliers>>) {
+  return result.rows.map((row) => ({
+    supplierId: row.supplier_id,
+    supplierCode: row.supplier_code,
+    supplierName: row.supplier_name,
+    supplierItemCode: row.supplier_item_code,
+    purchasePrice: row.purchase_price,
+    leadTimeDays: row.lead_time_days,
+    isPreferred: row.is_preferred,
+  }));
 }
 
 function mapCategory(row: { id: string; code: string; name: string; is_active: boolean }) {

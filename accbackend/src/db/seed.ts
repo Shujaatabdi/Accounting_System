@@ -54,7 +54,10 @@ export async function seed(): Promise<void> {
        VALUES ('journal', 'JE-', 1, 5),
               ('invoice', 'INV-', 1, 5),
               ('receipt', 'RCT-', 1, 5),
-              ('customer_return', 'CRN-', 1, 5)
+              ('customer_return', 'CRN-', 1, 5),
+              ('bill', 'BILL-', 1, 5),
+              ('supplier_payment', 'SPY-', 1, 5),
+              ('supplier_return', 'SRN-', 1, 5)
        ON CONFLICT (doc_type) DO NOTHING`,
     );
     for (const permission of PERMISSIONS) {
@@ -110,6 +113,13 @@ export async function seed(): Promise<void> {
         WHERE id = 1
           AND ar_control_account_id IS NULL
           AND EXISTS (SELECT 1 FROM accounts WHERE code = '1200')`,
+    );
+    await client.query(
+      `UPDATE purchasing_settings
+          SET ap_control_account_id = (SELECT id FROM accounts WHERE code = '2100')
+        WHERE id = 1
+          AND ap_control_account_id IS NULL
+          AND EXISTS (SELECT 1 FROM accounts WHERE code = '2100')`,
     );
 
     const yearCount = await client.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM fiscal_years");

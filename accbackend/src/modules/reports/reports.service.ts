@@ -21,14 +21,21 @@ import {
   movementFilter,
   profitAndLossRows,
   selectAccount,
+  selectApControlId,
+  selectApGl,
+  selectApSubledger,
   selectArControlId,
   selectArGl,
   selectArSubledger,
   selectJournalReport,
   selectLedgerLines,
+  selectOpenBills,
   selectOpenInvoices,
+  selectPurchaseActivity,
   selectSalesActivity,
   selectStatementLines,
+  selectSupplierReturnActivity,
+  selectSupplierStatementLines,
   sumMovement,
   trialBalanceRows,
   type ReportFilters,
@@ -293,6 +300,109 @@ export async function salesReport(actor: AuthUser, filters: { from?: string; to?
     taxTotal: money(totals.tax),
     total: money(totals.total),
   };
+}
+
+export async function payablesAging(actor: AuthUser, filters: { asOf?: string; supplierId?: string; branchId?: string }) {
+  const asOf = requiredDate(filters.asOf, "asOf");
+  await assertPayablesReconciled(actor, asOf, filters.branchId);
+  const rows = await selectOpenBills({ query }, [asOf, filters.supplierId ?? null, filters.branchId ?? null, actor.branchIds]);
+  const buckets = { current: decimal("0"), days1To30: decimal("0"), days31To60: decimal("0"), days61To90: decimal("0"), days91Plus: decimal("0") };
+  const bills = rows.rows.flatMap((row) => {
+    const open = decimal(row.open_amount);
+    if (open.lte(0)) return [];
+    const days = daysBetween(row.due_date, asOf);
+    const bucket = days <= 0 ? "current" : days <= 30 ? "days1To30" : days <= 60 ? "days31To60" : days <= 90 ? "days61To90" : "days91Plus";
+    buckets[bucket] = buckets[bucket].plus(open);
+    return [{
+      billId: row.id,
+      billNumber: row.bill_number,
+      supplierId: row.supplier_id,
+      supplierName: row.supplier_name,
+      billDate: row.bill_date,
+      dueDate: row.due_date,
+      openAmount: money(open),
+      bucket,
+    }];
+  });
+  return {
+    asOf,
+    bills,
+    totals: {
+      current: money(buckets.current),
+      days1To30: money(buckets.days1To30),
+      days31To60: money(buckets.days31To60),
+      days61To90: money(buckets.days61To90),
+      days91Plus: money(buckets.days91Plus),
+      open: money(buckets.current.plus(buckets.days1To30).plus(buckets.days31To60).plus(buckets.days61To90).plus(buckets.days91Plus)),
+    },
+  };
+}
+
+export async function supplierStatement(actor: AuthUser, filters: { supplierId: string; from: string; to: string; branchId?: string }) {
+  assertIsoDate(filters.from);
+  assertIsoDate(filters.to);
+  const openingDate = addDays(filters.from, -1);
+  await assertPayablesReconciled(actor, openingDate, filters.branchId);
+  await assertPayablesReconciled(actor, filters.to, filters.branchId);
+  const opening = decimal(one((await selectApSubledger({ query }, [openingDate, filters.supplierId, filters.branchId ?? null, actor.branchIds])).rows).amount);
+  const lines = await selectSupplierStatementLines({ query }, [filters.supplierId, filters.from, filters.to, filters.branchId ?? null, actor.branchIds]);
+  let balance = opening;
+  const rows = lines.rows.map((line) => {
+    balance = balance.plus(line.total);
+    return { kind: line.kind, number: line.number, date: line.doc_date, amount: line.total, balance: money(balance) };
+  });
+  return { supplierId: filters.supplierId, from: filters.from, to: filters.to, openingBalance: money(opening), lines: rows, closingBalance: money(balance) };
+}
+
+export async function purchasesReport(actor: AuthUser, filters: { from?: string; to?: string; branchId?: string }) {
+  return activityReport(actor, filters, selectPurchaseActivity);
+}
+
+export async function supplierReturnsReport(actor: AuthUser, filters: { from?: string; to?: string; branchId?: string }) {
+  return activityReport(actor, filters, selectSupplierReturnActivity);
+}
+
+async function activityReport(
+  actor: AuthUser,
+  filters: { from?: string; to?: string; branchId?: string },
+  loadRows: typeof selectPurchaseActivity,
+) {
+  const from = requiredDate(filters.from, "from");
+  const to = requiredDate(filters.to, "to");
+  const rows = await loadRows({ query }, [from, to, filters.branchId ?? null, actor.branchIds]);
+  const totals = rows.rows.reduce((sum, row) => ({
+    taxable: sum.taxable.plus(row.taxable),
+    tax: sum.tax.plus(row.tax),
+    total: sum.total.plus(row.total),
+  }), { taxable: decimal("0"), tax: decimal("0"), total: decimal("0") });
+  return {
+    from,
+    to,
+    rows: rows.rows.map((row) => ({
+      kind: row.kind, number: row.number, date: row.doc_date, supplierName: row.supplier_name,
+      taxable: row.taxable, tax: row.tax, total: row.total,
+    })),
+    taxableTotal: money(totals.taxable),
+    taxTotal: money(totals.tax),
+    total: money(totals.total),
+  };
+}
+
+async function assertPayablesReconciled(actor: AuthUser, asOf: string, branchId?: string) {
+  const control = one((await selectApControlId()).rows);
+  if (!control.ap_control_account_id) {
+    throw new AppError(409, "AP_CONTROL", "Choose the payable control account before running a payables report.");
+  }
+  if (branchId && actor.branchIds && !actor.branchIds.includes(branchId)) {
+    throw new AppError(403, "BRANCH_SCOPE", "You do not have access to this branch.");
+  }
+  const params = scopeParams(asOf, { branchId }, actor);
+  const gl = decimal(one((await selectApGl({ query }, params)).rows).amount);
+  const subledger = decimal(one((await selectApSubledger({ query }, params)).rows).amount);
+  if (!gl.eq(subledger)) {
+    throw new AppError(409, "RECONCILIATION", "Supplier payables do not match the payable control account, so this report was not produced.");
+  }
+  return { gl: money(gl), subledger: money(subledger) };
 }
 
 async function assertReconciled(actor: AuthUser, asOf: string, branchId?: string) {

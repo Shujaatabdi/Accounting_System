@@ -15,6 +15,10 @@ const TITLES: Record<string, string> = {
   "receivables-aging": "Receivables aging",
   "customer-statement": "Customer statement",
   sales: "Sales",
+  "payables-aging": "Payables aging",
+  "supplier-statement": "Supplier statement",
+  purchases: "Purchases",
+  "supplier-returns": "Supplier returns",
 };
 
 export function ReportScreen({ slug }: { slug: string }) {
@@ -24,7 +28,9 @@ export function ReportScreen({ slug }: { slug: string }) {
   const [to, setTo] = useState(todayIso());
   const [accountId, setAccountId] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   const [customers, setCustomers] = useState<Array<{ id: string; code: string; displayName: string }>>([]);
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; code: string; displayName: string }>>([]);
   const [accounts, setAccounts] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
@@ -40,19 +46,25 @@ export function ReportScreen({ slug }: { slug: string }) {
         .then((result) => setCustomers(result.data))
         .catch((caught: Error) => setError(caught.message));
     }
+    if (slug === "supplier-statement") {
+      api<{ data: Array<{ id: string; code: string; displayName: string }> }>("/api/v1/suppliers?pageSize=100")
+        .then((result) => setSuppliers(result.data))
+        .catch((caught: Error) => setError(caught.message));
+    }
   }, [slug]);
 
   async function run(event?: FormEvent) {
     event?.preventDefault();
     setError("");
     const query = new URLSearchParams();
-    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging") query.set("asOf", asOf);
+    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging" || slug === "payables-aging") query.set("asOf", asOf);
     else {
       query.set("from", from);
       query.set("to", to);
     }
     if (slug === "general-ledger") query.set("accountId", accountId);
     if (slug === "customer-statement") query.set("customerId", customerId);
+    if (slug === "supplier-statement") query.set("supplierId", supplierId);
     try {
       setReport(await api(`/api/v1/reports/${slug}?${query.toString()}`));
     } catch (caught) {
@@ -66,7 +78,7 @@ export function ReportScreen({ slug }: { slug: string }) {
       <h1 className="page-title">{TITLES[slug] ?? "Report"}</h1>
       <p className="lede">These reports include posted journals only. Dates filter the posting date, not the transaction date. Print this page to save a PDF. Spreadsheet export is CSV.</p>
       <form className="card row no-print" onSubmit={run}>
-        {slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging" ? (
+        {slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging" || slug === "payables-aging" ? (
           <label className="field"><span>As of</span><input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></label>
         ) : (
           <>
@@ -90,6 +102,14 @@ export function ReportScreen({ slug }: { slug: string }) {
             </select>
           </label>
         ) : null}
+        {slug === "supplier-statement" ? (
+          <label className="field"><span>Supplier</span>
+            <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
+              <option value="">Select</option>
+              {suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.code} {supplier.displayName}</option>)}
+            </select>
+          </label>
+        ) : null}
         <button className="btn" type="submit">Run</button>
         {report && can(auth.user, "reports.export") ? <button className="btn quiet" type="button" onClick={() => downloadCsv(`/api/v1/reports/${slug}?${currentQuery()}&format=csv`, `${slug}.csv`)}>Export CSV</button> : null}
         <button className="btn quiet" type="button" onClick={() => window.print()}>Print / PDF</button>
@@ -101,13 +121,14 @@ export function ReportScreen({ slug }: { slug: string }) {
 
   function currentQuery() {
     const query = new URLSearchParams();
-    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging") query.set("asOf", asOf);
+    if (slug === "trial-balance" || slug === "balance-sheet" || slug === "receivables-aging" || slug === "payables-aging") query.set("asOf", asOf);
     else {
       query.set("from", from);
       query.set("to", to);
     }
     if (accountId) query.set("accountId", accountId);
     if (customerId) query.set("customerId", customerId);
+    if (supplierId) query.set("supplierId", supplierId);
     return query.toString();
   }
 }
@@ -170,6 +191,19 @@ function ReportBody({ slug, report, places }: { slug: string; report: Record<str
   if (slug === "sales") {
     const rows = report.rows as Array<{ kind: string; number: string; date: string; customerName: string; taxable: string; tax: string; total: string }>;
     return <div className="card"><p>Total {money(String(report.total), places)}</p><AmountTable rows={rows.map((row) => [row.kind, row.number, row.date, row.customerName, money(row.taxable, places), money(row.tax, places), money(row.total, places)])} headers={["Kind", "Number", "Date", "Customer", "Taxable", "Tax", "Total"]} /></div>;
+  }
+  if (slug === "payables-aging") {
+    const rows = report.bills as Array<{ billNumber: string; supplierName: string; dueDate: string; openAmount: string; bucket: string }>;
+    const totals = report.totals as { open: string };
+    return <div className="card"><p>Open {money(totals.open, places)}. Unapplied advances are not included. The total reconciles to the accounts payable control account.</p><AmountTable rows={rows.map((row) => [row.billNumber, row.supplierName, row.dueDate, money(row.openAmount, places), row.bucket])} headers={["Bill", "Supplier", "Due", "Open", "Bucket"]} /></div>;
+  }
+  if (slug === "supplier-statement") {
+    const rows = report.lines as Array<{ kind: string; number: string; date: string; amount: string; balance: string }>;
+    return <div className="card"><p>Opening {money(String(report.openingBalance), places)} · Closing {money(String(report.closingBalance), places)}. This is the payable subledger. Unapplied advances are not part of this balance.</p><AmountTable rows={rows.map((row) => [row.kind, row.number, row.date, money(row.amount, places), money(row.balance, places)])} headers={["Kind", "Number", "Date", "Amount", "Balance"]} /></div>;
+  }
+  if (slug === "purchases" || slug === "supplier-returns") {
+    const rows = report.rows as Array<{ kind: string; number: string; date: string; supplierName: string; taxable: string; tax: string; total: string }>;
+    return <div className="card"><p>Total {money(String(report.total), places)}. Posted activity only.</p><AmountTable rows={rows.map((row) => [row.kind, row.number, row.date, row.supplierName, money(row.taxable, places), money(row.tax, places), money(row.total, places)])} headers={["Kind", "Number", "Date", "Supplier", "Taxable", "Tax", "Total"]} /></div>;
   }
   const rows = report.rows as Array<{ entryNumber: string; entryDate: string; postingDate: string; accountCode: string; debit: string; credit: string; description: string }>;
   return <div className="card"><AmountTable rows={rows.map((row) => [row.entryNumber, row.entryDate, row.postingDate, row.accountCode, money(row.debit, places), money(row.credit, places)])} headers={["Entry", "Transaction date", "Posting date", "Account", "Debit", "Credit"]} /></div>;

@@ -8,6 +8,8 @@ import {
   listProductsController,
   listUnitsController,
   updateCategoryController,
+  listProductSuppliersController,
+  saveProductSuppliersController,
   updateProductController,
 } from "../controllers/products.controller";
 import { requirePermission } from "../middleware/authorize";
@@ -22,3 +24,5 @@ productsRouter.get("/units", requirePermission("products.view"), listUnitsContro
 productsRouter.post("/units", requirePermission("products.create"), createUnitController);
 productsRouter.get("/products/:id", requirePermission("products.view"), getProductController);
 productsRouter.put("/products/:id", requirePermission("products.update"), updateProductController);
+productsRouter.get("/products/:id/suppliers", requirePermission("products.view"), listProductSuppliersController);
+productsRouter.put("/products/:id/suppliers", requirePermission("products.update"), saveProductSuppliersController);

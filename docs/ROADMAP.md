@@ -8,7 +8,7 @@ Implemented and covered by unit tests plus a PostgreSQL integration test:
 
 - Company profile, addresses, contacts, currency, time zone, fiscal-year start month, logo URL, and document numbering.
 - Country accounting profile with effective dates. Compliance stays unverified until an administrator marks it reviewed. That flag is not a statutory certification.
-- Tax codes store a rate and an optional sales account. Invoice tax is calculated in Phase 2 from the company pricing mode and the tax code on the line. The country code does not choose a rate.
+- Tax codes store a rate and optional sales and purchase accounts. Invoice tax and supplier-bill tax are calculated from the matching company pricing mode and the tax code on the line. The country code does not choose a rate.
 - Users, roles, action permissions, branch scope, privilege ceiling, and audit log.
 - Branches, chart of accounts, monthly fiscal years and periods, close and reopen.
 - Manual journals and opening-balance journals: draft, submit, approve, post, reject, void, reverse.
@@ -26,11 +26,11 @@ Limitations inside this phase:
 
 ## Phase 2 — Customers and sales — implemented
 
-Customers, products and services, invoices, receipts, allocations, statements, customer returns, and receivables aging. Posted documents call the ledger. Customer tax identifiers can be stored, and a sales setting can copy them onto an invoice at posting. Inventory quantity, inventory value, and cost of goods sold are not posted. Supplier master data is still Phase 3. ATL tracking and FBR/IRIS connections are not in this phase.
+Customers, products and services, invoices, receipts, allocations, statements, customer returns, and receivables aging. Posted documents call the ledger. Customer tax identifiers can be stored, and a sales setting can copy them onto an invoice at posting. Inventory quantity, inventory value, and cost of goods sold are not posted. ATL tracking and FBR/IRIS connections are not in this phase.
 
-## Phase 3 — Suppliers and purchasing — not started
+## Phase 3 — Suppliers and purchasing — implemented
 
-Suppliers, bills, payments, allocations, statements, supplier returns with product-level account adjustments, and payables aging.
+Suppliers, supplier-to-product links, supplier bills, supplier payments and allocations, supplier returns and debit notes, supplier statements, payables aging, and posted purchase and supplier-return reports. Posted documents call the ledger. A bill line posts to the product’s purchase expense account and the tax code’s purchase tax asset. It does not post an inventory asset. Unapplied supplier payments need a configured supplier-advance asset account. Payables aging uses open bills and excludes unapplied advances. Warehouse quantities and stock movements are Phase 4. Inventory costing and valuation are Phase 5. ATL tracking and FBR/IRIS connections are not in this phase.
 
 ## Phase 4 — Basic inventory and banking — not started
 
@@ -46,4 +46,4 @@ Country tax and statutory reports only after a country is selected and reviewed.
 
 ## Suggested order after review
 
-Phase 2 is implemented and waiting for review. Do not start Phase 3 until that review is accepted.
+Phase 3 is implemented. Do not start Phase 4, Phase 5, or Phase 6 until that work is explicitly requested. Phase 4 is stock quantity handling. Phase 5 is costing and valuation, and the costing method is still undecided.

@@ -13,6 +13,7 @@ const NAV = [
   { href: "/settings/tax-codes", label: "Tax codes", group: "Setup", permission: "tax_codes.view" },
   { href: "/settings/numbering", label: "Numbering", group: "Setup", permission: "numbering.view" },
   { href: "/settings/sales", label: "Sales settings", group: "Setup", permission: "accounting_profile.view" },
+  { href: "/settings/purchasing", label: "Purchasing settings", group: "Setup", permission: "accounting_profile.view" },
   { href: "/branches", label: "Branches", group: "Setup", permission: "branches.view" },
   { href: "/periods", label: "Fiscal periods", group: "Setup", permission: "periods.view" },
   { href: "/users", label: "Users", group: "Access", permission: "users.view" },
@@ -25,6 +26,10 @@ const NAV = [
   { href: "/invoices", label: "Invoices", group: "Sales", permission: "invoices.view" },
   { href: "/receipts", label: "Receipts", group: "Sales", permission: "receipts.view" },
   { href: "/customer-returns", label: "Customer returns", group: "Sales", permission: "customer_returns.view" },
+  { href: "/suppliers", label: "Suppliers", group: "Purchasing", permission: "suppliers.view" },
+  { href: "/bills", label: "Supplier bills", group: "Purchasing", permission: "bills.view" },
+  { href: "/supplier-payments", label: "Supplier payments", group: "Purchasing", permission: "supplier_payments.view" },
+  { href: "/supplier-returns", label: "Supplier returns", group: "Purchasing", permission: "supplier_returns.view" },
   { href: "/reports/trial-balance", label: "Trial balance", group: "Reports", permission: "reports.view" },
   { href: "/reports/profit-and-loss", label: "Profit and loss", group: "Reports", permission: "reports.view" },
   { href: "/reports/balance-sheet", label: "Balance sheet", group: "Reports", permission: "reports.view" },
@@ -33,6 +38,10 @@ const NAV = [
   { href: "/reports/receivables-aging", label: "Receivables aging", group: "Reports", permission: "reports.view" },
   { href: "/reports/customer-statement", label: "Customer statement", group: "Reports", permission: "reports.view" },
   { href: "/reports/sales", label: "Sales", group: "Reports", permission: "reports.view" },
+  { href: "/reports/payables-aging", label: "Payables aging", group: "Reports", permission: "reports.view" },
+  { href: "/reports/supplier-statement", label: "Supplier statement", group: "Reports", permission: "reports.view" },
+  { href: "/reports/purchases", label: "Purchases", group: "Reports", permission: "reports.view" },
+  { href: "/reports/supplier-returns", label: "Supplier returns report", group: "Reports", permission: "reports.view" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

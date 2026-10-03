@@ -7,8 +7,12 @@ import { customerReturnsRouter } from "./customer-returns.routes";
 import { customersRouter } from "./customers.routes";
 import { invoicesRouter } from "./invoices.routes";
 import { journalsRouter } from "./journals.routes";
+import { billsRouter } from "./bills.routes";
 import { productsRouter } from "./products.routes";
 import { receiptsRouter } from "./receipts.routes";
+import { supplierPaymentsRouter } from "./supplier-payments.routes";
+import { supplierReturnsRouter } from "./supplier-returns.routes";
+import { suppliersRouter } from "./suppliers.routes";
 import { periodsRouter } from "./periods.routes";
 import { reportsRouter } from "./reports.routes";
 import { rolesRouter } from "./roles.routes";
@@ -28,6 +32,10 @@ export function apiRouter() {
   router.use(invoicesRouter);
   router.use(receiptsRouter);
   router.use(customerReturnsRouter);
+  router.use(suppliersRouter);
+  router.use(billsRouter);
+  router.use(supplierPaymentsRouter);
+  router.use(supplierReturnsRouter);
   router.use(reportsRouter);
   return router;
 }

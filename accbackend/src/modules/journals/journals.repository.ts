@@ -73,6 +73,21 @@ export async function openingArUnbalanced(db: Sql, journalId: string) {
   );
 }
 
+export async function openingApUnbalanced(db: Sql, journalId: string) {
+  return db.query(
+    `SELECT 1
+       FROM journal_lines jl
+       JOIN purchasing_settings s ON s.id = 1
+      WHERE jl.journal_entry_id = $1
+        AND s.ap_control_account_id IS NOT NULL
+        AND jl.account_id = s.ap_control_account_id
+        AND (jl.credit - jl.debit) <> COALESCE((
+          SELECT SUM(d.amount) FROM supplier_opening_details d WHERE d.journal_line_id = jl.id
+        ), 0)`,
+    [journalId],
+  );
+}
+
 export async function hiddenBranchLine(db: Sql, id: string, branchIds: string[]) {
   return db.query(
     `SELECT 1 FROM journal_lines

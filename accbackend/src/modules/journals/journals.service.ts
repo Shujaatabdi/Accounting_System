@@ -7,6 +7,7 @@ import { decimal, money } from "../../shared/money";
 import { pageResult, type Page } from "../../shared/http/pagination";
 import type { AuthUser, RequestMeta } from "../auth/auth.types";
 import { selectCurrencyScale, selectRequireDistinctApprover, selectTimezone } from "../company/company.repository";
+import { selectPurchasingSettings } from "../company/purchasing.repository";
 import { selectSalesSettings } from "../company/sales.repository";
 import { allocateNumber } from "../company/numbering.service";
 import {
@@ -33,6 +34,7 @@ import {
   markDraft,
   markSubmitted,
   markVoid,
+  openingApUnbalanced,
   openingArUnbalanced,
   selectJournal,
   selectJournals,
@@ -189,7 +191,7 @@ export async function reverseJournal(id: string, input: { postingDate?: string; 
     if (original.status !== "posted" || original.reversedByEntryId) {
       throw new AppError(409, "JOURNAL_STATE", "Only a posted journal that has not already been reversed can be reversed.");
     }
-    if (["invoice", "receipt", "receipt_allocation", "customer_return"].includes(original.sourceType)) {
+    if (["invoice", "receipt", "receipt_allocation", "customer_return", "supplier_bill", "supplier_payment", "supplier_payment_allocation", "supplier_return"].includes(original.sourceType)) {
       throw new AppError(409, "DOCUMENT_REVERSAL", "Reverse the source document. Its journal cannot be reversed on its own.");
     }
     const company = one((await selectTimezone(client)).rows);
@@ -264,6 +266,11 @@ async function assertManualArAllowed(db: Sql, sourceType: string, lines: ParsedL
   if (control && lines.some((line) => line.accountId === control)) {
     throw new AppError(409, "AR_CONTROL", "Manual journals cannot post to the customer receivable control account.");
   }
+  const purchasing = (await selectPurchasingSettings(db)).rows[0];
+  const payable = purchasing?.ap_control_account_id;
+  if (payable && lines.some((line) => line.accountId === payable)) {
+    throw new AppError(409, "AP_CONTROL", "Manual journals cannot post to the supplier payable control account.");
+  }
 }
 
 async function assertOpeningArReady(db: Sql, sourceType: string, journalId: string) {
@@ -271,6 +278,10 @@ async function assertOpeningArReady(db: Sql, sourceType: string, journalId: stri
   const mismatch = await openingArUnbalanced(db, journalId);
   if ((mismatch.rowCount ?? 0) > 0) {
     throw new AppError(409, "OPENING_AR", "Customer opening detail must equal the accounts receivable line before this journal can continue.");
+  }
+  const payableMismatch = await openingApUnbalanced(db, journalId);
+  if ((payableMismatch.rowCount ?? 0) > 0) {
+    throw new AppError(409, "OPENING_AP", "Supplier opening detail must equal the accounts payable line before this journal can continue.");
   }
 }
 

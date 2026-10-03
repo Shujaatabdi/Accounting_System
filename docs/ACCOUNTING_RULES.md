@@ -42,4 +42,18 @@ A date can be posted only when both its period and its fiscal year are open. Clo
 
 ## History
 
-Posted lines keep the account code and name from posting time. Later renames do not rewrite those snapshots. Account type and code cannot change after any journal line exists. Currency name, symbol, and decimal places cannot change after a journal is posted. Tax codes are effective-dated. An invoice or return line stores the rate, tax amount, and tax account from the code selected when that line was saved.
+Posted lines keep the account code and name from posting time. Later renames do not rewrite those snapshots. Account type and code cannot change after any journal line exists. Currency name, symbol, and decimal places cannot change after a journal is posted. Tax codes are effective-dated. An invoice, customer return, supplier bill, or supplier return line stores the rate, tax amount, and tax account from the code selected when that line was saved.
+
+## Purchasing
+
+Purchasing settings are separate from sales settings. Tax pricing is exclusive or inclusive. A line discount reduces the taxable base. The country code does not choose a rate.
+
+A supplier bill posts: debit the product purchase expense for the taxable base, debit the tax code’s purchase tax asset for the tax, and credit the payable control for the total. The purchase account must already be an active non-header expense. A missing mapping blocks the bill. The line is not posted to an inventory asset. Posted bills are reversed, not edited or deleted.
+
+A supplier payment that is fully allocated to bills posts as a debit to the payable control and a credit to cash. A payment with any unapplied amount is blocked until a supplier-advance asset account is configured. That payment debits the advance asset and credits cash. Applying the advance to a bill is a later balanced journal: debit the payable control and credit the advance asset. Unapplied advances are excluded from bill aging.
+
+A linked supplier return uses the source bill line’s saved price, discount, tax, and accounts. Posting locks that line and rejects a cumulative quantity or value above the remainder. Voided and reversed bills are rejected. The return posts: debit the payable control, credit the purchase expense, and credit the purchase tax asset. Disposition is stored and does not move warehouse quantity. An unreferenced return needs its own permission, a reason, explicit price, tax, and purchase account, and the same approval path. Corrections of posted purchasing documents are reversals.
+
+Payables aging and supplier statements use posted open balances. They are withheld when the payable subledger does not equal the payable control account. The subledger is opening supplier detail plus posted bills, minus posted returns, minus direct payable payments, minus advance applications. Aging is the open bill remainder and does not include the advance asset.
+
+Stock receipt and return quantities are not posted in this phase. They belong to Phase 4. Inventory costing, valuation, and cost of goods sold belong to Phase 5.

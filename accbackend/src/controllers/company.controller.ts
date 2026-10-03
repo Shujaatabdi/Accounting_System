@@ -10,6 +10,8 @@ import {
 } from "../modules/company/company.schemas";
 import { listSequences, updateSequence } from "../modules/company/numbering.service";
 import { createTaxCode, getAccountingProfile, listTaxCodes, retireTaxCode, updateAccountingProfile, updateTaxCodeAccounts } from "../modules/company/tax.service";
+import { purchasingSettingsBody } from "../modules/company/purchasing.schemas";
+import { getPurchasingSettings, updatePurchasingSettingsProfile } from "../modules/company/purchasing.service";
 import { salesSettingsBody } from "../modules/company/sales.schemas";
 import { getSalesSettings, updateSalesSettingsProfile } from "../modules/company/sales.service";
 import { parseBody, wrap } from "../shared/http";
@@ -44,6 +46,14 @@ export const getSalesSettingsController = wrap(async (_req, res) => {
 
 export const updateSalesSettingsController = wrap(async (req, res) => {
   res.json(await updateSalesSettingsProfile(parseBody(salesSettingsBody, req.body), actorFrom(req)));
+});
+
+export const getPurchasingSettingsController = wrap(async (_req, res) => {
+  res.json(await getPurchasingSettings());
+});
+
+export const updatePurchasingSettingsController = wrap(async (req, res) => {
+  res.json(await updatePurchasingSettingsProfile(parseBody(purchasingSettingsBody, req.body), actorFrom(req)));
 });
 
 export const listTaxCodesController = wrap(async (_req, res) => {

@@ -1,6 +1,6 @@
 import { actorFrom } from "../middleware/authenticate";
-import { createCategory, createProduct, createUnit, getCategories, getProduct, getUnits, listProducts, updateCategoryProfile, updateProductProfile } from "../modules/products/products.service";
-import { categoryBody, productBody, productListQuery, unitBody } from "../modules/products/products.schemas";
+import { createCategory, createProduct, createUnit, getCategories, getProduct, getUnits, listProductSuppliers, listProducts, saveProductSuppliers, updateCategoryProfile, updateProductProfile } from "../modules/products/products.service";
+import { categoryBody, productBody, productListQuery, productSuppliersBody, unitBody } from "../modules/products/products.schemas";
 import { parseBody, parseQuery, wrap } from "../shared/http";
 import { toPage } from "../shared/http/pagination";
 
@@ -19,6 +19,14 @@ export const getProductController = wrap(async (req, res) => {
 
 export const updateProductController = wrap(async (req, res) => {
   res.json(await updateProductProfile(req.params.id, parseBody(productBody, req.body), actorFrom(req)));
+});
+
+export const listProductSuppliersController = wrap(async (req, res) => {
+  res.json({ data: await listProductSuppliers(req.params.id) });
+});
+
+export const saveProductSuppliersController = wrap(async (req, res) => {
+  res.json({ data: await saveProductSuppliers(req.params.id, parseBody(productSuppliersBody, req.body), actorFrom(req)) });
 });
 
 export const listCategoriesController = wrap(async (_req, res) => {

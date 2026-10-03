@@ -71,6 +71,6 @@ Frontend code is TypeScript and the Next.js App Router under `accfrontend`.
 
 ## Current and planned scope
 
-Implemented now: company profile, users, roles, permissions, branches, chart of accounts, fiscal periods, manual journals, approvals, posting, reversals, audit, trial balance, profit and loss, balance sheet, general ledger, customers, products and services, sales invoices, receipts, allocations, customer returns, receivables aging, customer statements, and the sales report.
+Implemented now: company profile, users, roles, permissions, branches, chart of accounts, fiscal periods, manual journals, approvals, posting, reversals, audit, trial balance, profit and loss, balance sheet, general ledger, customers, products and services, sales invoices, receipts, allocations, customer returns, receivables aging, customer statements, the sales report, suppliers, supplier bills, supplier payments and allocations, supplier returns, payables aging, supplier statements, and the purchases and supplier-return reports.
 
-Not implemented: suppliers, purchasing, inventory quantities, inventory valuation, cost of goods sold, costing, and manufacturing.
+Not implemented: warehouse quantities, stock movements, inventory valuation, cost of goods sold, costing, and manufacturing. Stock receipt and return quantities are Phase 4. Inventory costing and valuation are Phase 5. ATL tracking and FBR/IRIS connections are Phase 6 or a separately approved change.

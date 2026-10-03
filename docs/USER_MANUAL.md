@@ -17,23 +17,25 @@ One installation keeps the books for one company. The country code does not choo
 7. Access
 8. Ledger
 9. Sales
-10. Reports
-11. What the screens do not offer yet
-12. Glossary
+10. Purchasing
+11. Reports
+12. What the screens do not offer yet
+13. Glossary
 
 ## 1. Before you begin
 
-A company administrator usually completes setup before staff enter day-to-day sales. Do these in order.
+A company administrator usually completes setup before staff enter day-to-day sales or purchasing. Do these in order.
 
 1. Sign in and, if asked, change the password.
 2. Open **Company** and replace any placeholder legal name and country code. Use a two-letter country code. Set the time zone to a real time-zone name, such as **Example:** `America/Toronto`.
 3. Open **Country profile** and record the country you are working in. Leave **Compliance** as **Unverified** until a person has reviewed the setup. Reviewed means an administrator acknowledged the setup. It is not a certificate from this software.
-4. Open **Chart of accounts** and confirm the accounts you will use for cash, receivables, sales, tax, and customer advances.
+4. Open **Chart of accounts** and confirm the accounts you will use for cash, receivables, payables, sales, purchase expenses, sales tax, purchase tax, and advances. This version does not create those accounts for you.
 5. Open **Fiscal periods** and make sure the year and month you will post into are **open**.
-6. Open **Tax codes** if you will use a named rate. A rate above zero needs a sales tax account on that screen. An invoice uses the tax code chosen on the line. See Sales settings and Invoices.
+6. Open **Tax codes** if you will use a named rate. A rate above zero needs a sales tax liability, a purchase tax asset, or both. An invoice uses the sales liability. A supplier bill uses the purchase tax asset. The country code does not choose the rate.
 7. Open **Sales settings**. Choose the receivable control account. If unapplied receipts should sit as a customer advance, also choose a liability account called **Customer advances**. Until that account is chosen, the default receipt treatment will not save a receipt.
-8. Open **Users** and **Roles** if other people will sign in.
-9. Open **Branches** if you need more than the starting branch. Invoices, receipts, and returns ask for a branch.
+8. Open **Purchasing settings**. Confirm the payable control account. Leave **Supplier advances** empty until you have an asset account for money paid before it is applied to a bill. A payment that is not fully applied stays blocked until that asset is selected.
+9. Open **Users** and **Roles** if other people will sign in.
+10. Open **Branches** if you need more than the starting branch. Invoices, receipts, returns, bills, supplier payments, and supplier returns ask for a branch.
 
 Drafts do not appear on official reports. Only **posted** activity does.
 
@@ -97,14 +99,15 @@ Journals, invoices, receipts, and customer returns use the same idea.
 - The country code is two letters, such as **Example:** `CA`. It does not select tax rates or tax rules.
 - Amounts are typed as decimal numbers, such as **Example:** `100.00`. Do not use a thousands separator.
 - Dates use the calendar date you pick. Official reports filter by **posting date**, not by the transaction date, except where a screen says otherwise.
-- A **control account** is a summary account, such as accounts receivable. Ordinary manual journals cannot post to the customer receivable control account. Customer invoices, receipts, allocations, returns, and their reversals post to it.
-- Customer opening amounts can be attached to an opening-balance receivable line, but there is no screen for that. See section 11.
+- A **control account** is a summary account, such as accounts receivable or accounts payable. Ordinary manual journals cannot post to the customer receivable control account or the supplier payable control account. Customer documents post to the receivable. Supplier bills, payments, allocations, and returns post to the payable.
+- Customer opening amounts can be attached to an opening-balance receivable line, and supplier opening amounts can be attached to an opening-balance payable line. There is no screen for either. See section 12.
 - Unapplied receipt cash uses a customer-advance liability account unless **Sales settings** says to credit accounts receivable instead. Unapplied advances are not included in receivables aging.
-- A linked customer return names one invoice line. The quantity and value cannot exceed what is still open on that line. A posted return reduces what the customer owes. It does not change stock quantity, stock value, or cost of goods sold.
-- An invoice cannot be reversed while a posted receipt is still allocated to it or a posted return still applies. Unallocate the receipt and reverse the return first.
+- Unapplied supplier payments use a supplier-advance asset account. Until that account is selected, a payment that is not fully applied to bills cannot be posted. Unapplied supplier advances are not included in payables aging.
+- A linked customer return names one invoice line. A linked supplier return names one bill line. The quantity and value cannot exceed what is still open on that line. Neither return changes stock quantity, stock value, or cost of goods sold.
+- An invoice cannot be reversed while a posted receipt is still allocated to it or a posted return still applies. A supplier bill cannot be reversed while a posted payment is still allocated to it or a posted supplier return still applies. Remove those documents first.
 - The menu hides an item when your role does not include that permission. Hiding a button is not the only check. The system also refuses the action if you do not have permission.
 - The **Company Admin** role can perform every action and can see every branch.
-- Other users can be limited to selected branches. The user screen does not yet let you assign those branches. See section 11.
+- Other users can be limited to selected branches. The user screen does not yet let you assign those branches. See section 12.
 - Important actions are written to the **Audit log** in the same step as the change. The log keeps the previous and new values.
 
 ## 5. Overview
@@ -159,7 +162,7 @@ The page title is **Company**. The introduction says one installation has one co
 | Fiscal year start month | Yes | Whole number from 1 to 12. 1 means January. | Example: `1` | New fiscal years must start in this month, on day 01. |
 | Logo URL | Optional | Up to 500 characters. The screen does not display the picture. | Example: `https://example.com/logo.png` | Stored only. |
 | Notes | Optional | Up to 2000 characters. | Example: `Books kept for the studio only.` | Stored on the company. |
-| Require a different person to approve a journal | Optional checkbox | On or off. | Leave off for a one-person office. | When on, the person who submits cannot approve that journal. The same rule is applied to invoices, receipts, and customer returns. |
+| Require a different person to approve a journal | Optional checkbox | On or off. | Leave off for a one-person office. | When on, the person who submits cannot approve that journal. The same rule is applied to invoices, receipts, customer returns, supplier bills, supplier payments, and supplier returns. |
 | Save company | Button | — | — | Saves the profile. It does not post a journal. |
 
 If the name or country is still a placeholder, a yellow banner asks you to replace them and to use the ISO country code rather than a tax regime.
@@ -209,28 +212,29 @@ The page title is **Country profile**. The introduction states that country tax 
 
 Menu: **Tax codes**. Route: `/settings/tax-codes`. View permission: `tax_codes.view`. Add permission: `tax_codes.manage`.
 
-**Purpose.** Store a named percentage rate, the date it starts, and the sales tax account used when that rate is charged.
+**Purpose.** Store a named percentage rate, the date it starts, the sales tax liability used on invoices, and the purchase tax asset used on supplier bills.
 
 **Who uses it.** A company administrator.
 
-The page title is **Tax codes**. The text says a tax code stores a percentage and a start date, invoices use the code selected on the line, and a rate above zero needs an active liability account that is not a header. A rate change is a new code. No country rate is verified. Adding or mapping a code does not change invoices that are already saved.
+The page title is **Tax codes**. A rate above zero needs a sales tax liability, a purchase tax asset, or both. Each account must be active and must not be a header. A rate change is a new code. No country rate is verified. Adding or mapping a code does not change documents that are already saved.
 
 | Control | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
 | Code | Yes | 1 to 32 characters. Placeholder **Code**. | Example: `STD` | The short name of the rate. |
 | Name | Yes | 1 to 160 characters. Placeholder **Name**. | Example: `Standard rate` | A description for staff. |
 | Rate % | Yes | A percentage from 0 to 100, as a decimal number. Placeholder **Rate %**. The box starts at `0`. | Example: `10` | The rate stored for that code. No country rate is built in. |
-| Sales tax account | Required when the rate is above zero | Active liability accounts that are not headers, or **No sales tax account** when the rate is zero. | Example: `2200 Tax payable` | The account credited for tax on an invoice that uses this code. Invoice users do not choose this account. |
+| Sales tax account | Required for a sales line when the rate is above zero | Active liability accounts that are not headers, or **No sales tax account**. | Example: `2200 Tax payable` | The account credited for tax on an invoice that uses this code. Invoice users do not choose this account. |
+| Purchase tax account | Required for a supplier bill when the rate is above zero | Active asset accounts that are not headers, or **No purchase tax account**. | Example: an input-tax asset you already created | The account debited for tax on a supplier bill that uses this code. Bill users do not choose this account. |
 | Date box | Yes | A calendar date. There is no label. It starts as today’s date. | Example: `2026-01-01` | The first day this version of the rate is effective. |
-| Add tax code | Button | — | — | Adds the code. It does not post a journal. A rate above zero is rejected until a sales tax account is selected. |
+| Add tax code | Button | — | — | Adds the code. It does not post a journal. A rate above zero is rejected until at least one of the two tax accounts is selected. |
 
-The list headings are **Code**, **Name**, **Rate**, **Starts**, **Status**, and **Sales tax account**. Choosing an account on an existing row saves that account without changing the rate. An active code with a rate above zero cannot be left without an account. A zero-rate code may have no account. There is still no retire button on this screen.
+The list headings are **Code**, **Name**, **Rate**, **Starts**, **Status**, **Sales tax account**, and **Purchase tax account**. Choosing an account on an existing row saves both accounts without changing the rate. A zero-rate code may have no account. There is still no retire button on this screen.
 
 ### Numbering
 
 Menu: **Numbering**. Route: `/settings/numbering`. View permission: `numbering.view`. Save permission: `numbering.update`.
 
-**Purpose.** Set the prefix and the next number for journals, invoices, receipts, and customer returns.
+**Purpose.** Set the prefix and the next number for journals, invoices, receipts, customer returns, supplier bills, supplier payments, and supplier returns.
 
 **Who uses it.** A company administrator.
 
@@ -238,7 +242,7 @@ The page title is **Document numbering**. Each document type is its own row. The
 
 | Position | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
-| Document type | Shown, not editable | `journal`, `invoice`, `receipt`, or `customer_return`. | `invoice` | Which sequence you are editing. |
+| Document type | Shown, not editable | `journal`, `invoice`, `receipt`, `customer_return`, `bill`, `supplier_payment`, or `supplier_return`. | `bill` | Which sequence you are editing. |
 | Prefix | Can be blank | Up to 12 characters. | Example: `INV-` | Text placed before the number. |
 | Next number | Yes | A whole number of at least 1. | Example: `1` | The next document receives this number. Already issued numbers stay as they are. |
 | Pad length | Yes | A whole number from 1 to 12. | Example: `5` | `1` with padding 5 is shown as `00001`. |
@@ -264,11 +268,30 @@ Menu: **Sales settings**. Route: `/settings/sales`. Uses the country-profile per
 | Line discounts use the stored rule | Text, not an input | The only stored rule is `reduce_taxable_base`. | — | A line discount reduces the amount tax is calculated on. The invoice screen has a discount box. |
 | Save sales settings | Button | — | — | Saves the settings and writes an audit entry. It does not post a journal. |
 
+### Purchasing settings
+
+Menu: **Purchasing settings**. Route: `/settings/purchasing`. Uses the same permissions as sales settings: view `accounting_profile.view`, save `accounting_profile.update`.
+
+**Purpose.** Tell the system how to price purchase tax, which liability is the payable control, and which asset holds supplier payments that are not yet applied to bills.
+
+**Who uses it.** A company administrator, before supplier bills and payments are posted.
+
+These settings are separate from **Sales settings**. The country code does not choose a tax rate.
+
+| Label | Required | Options and limits | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Tax pricing | Yes | **Tax exclusive** or **Tax inclusive**. The stored default is exclusive. | Example: `Tax exclusive` | Used when a supplier bill or supplier return includes a tax code. |
+| Payable control | Yes | Liability accounts that can be posted to. | Example: `2100 Accounts payable`, when that starter account is still in the chart. | Bills credit this account. Payments, allocations, and returns debit it. Manual journals cannot use it. |
+| Supplier advances | Optional | Asset accounts, or **Not selected**. | Example: an asset you already created, such as `Supplier advances`. | Required before you can post a payment that is not fully applied to bills. It cannot be the payable control account. The system does not create this account. |
+| Show supplier tax identifiers | Yes | **Off** or **On**. The stored default is Off. | Example: `Off` | When On, posting a bill copies the supplier tax details that exist at that moment. Later supplier edits do not change that copy. These details are not claimed to be legally required. |
+| Discount treatment | Text, not an input | The only stored rule is `reduce_taxable_base`. | — | A line discount reduces the amount tax is calculated on. |
+| Save | Button | — | — | Saves the settings and writes an audit entry. It does not post a journal. |
+
 ### Branches
 
 Menu: **Branches**. Route: `/branches`. View permission: `branches.view`. Add permission: `branches.create`.
 
-**Purpose.** Locations used on invoices, receipts, and returns. Users can later be limited to certain branches. Company Admin always sees every branch.
+**Purpose.** Locations used on invoices, receipts, returns, supplier bills, supplier payments, and supplier returns. Users can later be limited to certain branches. Company Admin always sees every branch.
 
 **Who uses it.** A company administrator.
 
@@ -496,11 +519,11 @@ Table columns: **Code**, **Name**, **Tax country**, **CNIC/NTN** (the printed fo
 
 Menu: **Products**. Route: `/products`. View permission: `products.view`. Create permission: `products.create`.
 
-**Purpose.** The catalog of things you sell. Stock, non-stock, and service are labels. This version does not keep a quantity on hand, a stock value, or a cost of goods sold.
+**Purpose.** The catalog of things you sell or buy. Stock, non-stock, and service are labels. This version does not keep a quantity on hand, a stock value, or a cost of goods sold. A supplier bill uses the purchase expense account, not an inventory asset.
 
 **Who uses it.** Someone who maintains the catalog.
 
-There is no search box. Up to 100 products are listed. The form asks for an optional default tax code. It does not ask for a category, unit, description, or notes. New products are saved as active. Sales and return accounts must be active income accounts that are not headers.
+There is no search box. Up to 100 products are listed. The form asks for an optional default tax code and an optional purchase expense account. It does not ask for a category, unit, description, or notes. New products are saved as active. Sales and return accounts must be active income accounts that are not headers. The purchase account, when set, must be an active expense account that is not a header.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -510,10 +533,25 @@ There is no search box. Up to 100 products are listed. The form asks for an opti
 | Sales price | Yes | A decimal number of zero or more. The box starts at `0.00`. | Example: `150.00` | A catalog price. The invoice screen asks you to type the price again. It does not fill this in for you. |
 | Sales account | Yes | Income accounts from the chart. | Example: `4100 Sales` | The income account credited when an invoice for this product is posted. The invoice stores the account that was current at that time. |
 | Default tax code | Optional | An active tax code, or **No tax**. | Example: `STD Standard rate` | Used only when a new invoice line does not send its own tax code. Changing this later does not change a draft or posted invoice that already stored a code. |
+| Purchase account | Optional | Expense accounts, or **Not set**. | Example: `5100 Operating expenses` | Required before this product can be used on a supplier bill. The bill stores the account that was current when the bill was saved. |
 | Return account | Yes | Income accounts from the chart. | Example: `4100 Sales` | Stored on the product. A return linked to an invoice uses the sales account saved on the invoice line, not a later change to this field. |
 | Add product | Button | — | — | Saves the product. It does not post a journal and does not change stock. |
 
-Table columns: **SKU**, **Name**, **Type**, and **Price**. There is no edit button on the screen.
+Table columns: **SKU**, **Name**, **Type**, and **Price**. There is no edit button on the product row.
+
+**Supplier links** is a second form on the same page. A product can have several suppliers. Saving replaces the links for the selected product. If you mark one supplier preferred, the others on that product are saved as not preferred.
+
+| Label | Required | Allowed values | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Product | Yes | A product from the list. | Example: `SVC-CONSULT Design consultation` | The product the link belongs to. |
+| Supplier | Yes | An active supplier. | Example: `S001 Harbor Paper` | One row per supplier. |
+| Supplier item code | Optional | Text. | Example: `HP-100` | The supplier’s own item code. It is not a stock movement. |
+| Purchase price | Yes | A decimal number of zero or more. | Example: `10.00` | Stored on the link. A new bill can fill the unit price from this link when you choose the product. |
+| Lead time (days) | Yes | A whole number. The box starts at `0`. | Example: `7` | Recorded only. It does not create a stock receipt. |
+| Preferred | Yes | **No** or **Yes**. | Example: `Yes` | One preferred supplier per product. |
+| Save supplier link | Button | — | — | Saves the links. It does not post a journal. |
+
+The link table columns are **Supplier**, **Item code**, **Price**, **Lead time**, and **Preferred**.
 
 ### Invoices
 
@@ -668,7 +706,122 @@ You see the number, status, and reason. The line table has no headings. Columns 
 
 This screen does not show Reject, Void, or an edit form. It does not offer an unreferenced return.
 
-## 10. Reports
+## 10. Purchasing
+
+Purchasing uses the same draft, submit, approve, and post path as sales. Posted bills, payments, and returns are corrected by reversal. They are not edited or deleted. A bill does not receive stock, and a supplier return does not send stock back. Quantity handling is a later phase. Costing and inventory value are a later phase after that.
+
+### Suppliers
+
+Menu: **Suppliers**. Route: `/suppliers`. View permission: `suppliers.view`. Create permission: `suppliers.create`. Update permission: `suppliers.update`.
+
+**Purpose.** Keep the people and companies you buy from, including contacts, a billing address, payment terms, and tax identifiers. Saving a supplier does not post a balance.
+
+**Who uses it.** Purchasing staff.
+
+There is no search box. Up to 100 suppliers are listed. Click a row to edit it. The page then shows payables, unapplied advances, linked products, and recent bills, payments, and returns.
+
+| Label | Required | Allowed values | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Code | Yes | 1 to 32 characters. Must be unique. | Example: `S001` | The supplier code. |
+| Legal name | Yes | 1 to 160 characters. | Example: `Harbor Paper Ltd` | The legal name. |
+| Display name | Yes | 1 to 160 characters. | Example: `Harbor Paper` | Shown on bills and reports. |
+| Payment terms (days) | Yes | A whole number from 0 to 3650. | Example: `30` | The default due date of a new bill is the bill date plus these days. |
+| Status | Yes | **Active** or **Inactive**. | Example: `Active` | Inactive suppliers cannot be used on new documents that require an active supplier. |
+| Tax country | Optional | Two letters, or blank. | Example: `PK` | Does not choose a tax rate. |
+| Tax identifier | Optional | Up to 60 characters. | Example: `TAX-900` | A generic identifier. It is not copied into CNIC/NTN. |
+| Party type | Required when tax country is `PK` | **Individual**, **Company**, or **AOP**. | Example: `Company` | Hidden unless the tax country is `PK`. |
+| CNIC/NTN | Required when tax country is `PK` | An individual CNIC is 13 digits. A company or AOP NTN is 7 digits, or the printed form `1234567-8`. | Example: `1234567-8` | The check digit is stored for display and is not verified. |
+| STRN | Optional when tax country is `PK` | Up to 60 characters. | Example: `12-34-5678-901-23` | Hidden unless the tax country is `PK`. |
+| Billing address | Optional | 1 to 160 characters when you also enter a country. | Example: `12 Dock Road` | Stored as the primary billing address. |
+| Address country | Required with an address | Exactly two letters. | Example: `PK` | The address country. |
+| Primary contact | Optional | 1 to 160 characters. | Example: `Sana Iqbal` | Stored as the primary contact. |
+| Add supplier / Save supplier | Button | — | — | Saves the supplier. **Cancel** appears while you are editing. A tax country other than `PK` clears party type, CNIC/NTN, and STRN. |
+
+While you are editing, **Products** lists item code, purchase price, lead time, and preferred. **Transactions** lists kind, number, date, status, and total. The balance line separates payables from unapplied advances. Advances are not part of bill aging. ATL status and FBR connections are not stored.
+
+### Supplier bills
+
+Menu: **Supplier bills**. Route: `/bills`. View permission: `bills.view`. Create permission: `bills.create`.
+
+**Purpose.** Record what a supplier billed you. Posting debits the product’s purchase expense account, debits the tax code’s purchase tax asset when the line has tax, and credits accounts payable. It does not debit an inventory asset.
+
+**Who uses it.** Purchasing staff, then an approver, then someone who can post.
+
+**Prerequisites.** An active supplier, an active product with a purchase expense account, a branch, an open fiscal period, a payable control account, and, when the line has tax, a purchase tax asset on that tax code.
+
+**New bill** opens `/bills/new`. The form saves one line.
+
+| Label | Required | Allowed values | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Supplier | Yes | Active suppliers. | Example: `S001 Harbor Paper` | The bill’s supplier. |
+| Branch | Yes | Branches you can access. | Example: `HQ Head office` | Stored on the bill and on the journal. |
+| Bill date | Yes | A calendar date in an open period when you post. | Example: `2026-03-01` | The due date is this date plus the supplier’s payment terms, unless a later edit overrides it. Overriding the due date needs `bills.override_due_date`. The new-bill screen does not show a due-date box. |
+| Product or service | Yes | Active products. | Example: `SVC-CONSULT` | Choosing it can fill the unit price from that supplier’s product link. |
+| Description | Optional | Up to 240 characters. | Example: `March paper` | Blank uses the product name. |
+| Quantity | Yes | A decimal greater than zero. | Example: `3` | Stored on the line. It is not a warehouse receipt. |
+| Unit price | Yes | A decimal of zero or more. | Example: `10.00` | Exclusive tax adds tax on top. Inclusive tax treats this price as already including tax. |
+| Discount | Optional | A decimal of zero or more. The box starts at `0`. | Example: `0` | Reduces the taxable base. |
+| Tax code | Optional | An active tax code, or **No tax**. | Example: `STD Standard rate` | Filled from the product when you choose the product. A rate above zero must already have a purchase tax asset. |
+| Create bill | Button | — | — | Saves a draft. It does not post a journal. The bill is rejected if the product has no purchase expense account. |
+
+The list columns are **Number**, **Supplier**, **Date**, **Due**, **Status**, and **Total**. Open a number to see the bill.
+
+On a draft or rejected bill you can change the line discount and tax code, then press **Save line tax and discount**. You cannot change the supplier, quantity, or price on that page. **Submit**, **Approve**, and **Post** follow the usual path. **Post** needs an open period. When **Show supplier tax identifiers** is on, posting copies the supplier’s tax details onto the bill. **Reverse** needs a reason and is blocked while a posted payment allocation or a posted supplier return still applies. The screen does not show Reject or Void.
+
+### Supplier payments
+
+Menu: **Supplier payments**. Route: `/supplier-payments`. View permission: `supplier_payments.view`. Create permission: `supplier_payments.create`. Allocate permission: `supplier_payments.allocate`.
+
+**Purpose.** Pay a supplier and apply that money to posted bills. One payment can cover more than one bill. A partial payment is allowed.
+
+**Who uses it.** Purchasing or finance staff.
+
+**Prerequisites.** Purchasing settings must have a payable control account. The cash account must be an active asset and must not be the payable control or the supplier-advance account. A payment that is not fully applied also needs **Supplier advances** selected. A fully applied payment does not need that asset.
+
+**New payment** opens `/supplier-payments/new`.
+
+| Label | Required | Allowed values | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Supplier | Yes | Active suppliers. | Example: `S001 Harbor Paper` | Loads that supplier’s posted bills. |
+| Branch | Yes | Branches you can access. | Example: `HQ Head office` | Stored on the payment. |
+| Date | Yes | A calendar date. | Example: `2026-03-15` | The payment date. |
+| Cash or bank | Yes | Asset accounts. | Example: `1110 Cash` | The account credited when the payment is posted. |
+| Amount | Yes | A decimal greater than zero. | Example: `22.00` | The full payment. |
+| Bill | Optional | A posted bill, or **No allocation yet**. | Example: `BILL-00001` | The bill this draft applies money to. |
+| Amount applied to the bill | Optional | A decimal up to the payment amount. | Example: `22.00` | Leave it blank, or lower than the payment, only when a supplier advance asset is configured. |
+| Create payment | Button | — | — | Saves a draft. |
+
+The list shows number, supplier, date, status, treatment, amount, and unapplied amount. Treatment is `direct_ap` when the payment is fully applied, and `supplier_advance` when any amount is unapplied.
+
+On the payment page, **Submit**, **Approve**, and **Post** follow the usual path. A fully applied payment debits accounts payable and credits cash. A payment with an unapplied remainder debits the supplier-advance asset and credits cash. Posting that remainder fails with a setup message until the advance asset is selected. After a `supplier_advance` payment is posted, **Apply advance to bill** posts a separate balanced entry: debit accounts payable, credit the advance asset. **Unallocate** reverses a separate allocation. A direct application cannot be unallocated on its own; reverse the payment instead. **Reverse** needs a reason and is blocked while a separate allocation journal still exists. The screen does not show Reject or Void.
+
+### Supplier returns
+
+Menu: **Supplier returns**. Route: `/supplier-returns`. View permission: `supplier_returns.view`. Create permission: `supplier_returns.create`. An unreferenced return also needs `supplier_returns.create_unreferenced`.
+
+**Purpose.** Record a return to a supplier or a debit note. A linked return uses the source bill line’s saved price, discount, tax, and accounts. Posting debits accounts payable and credits the purchase expense and the purchase tax asset. It does not move warehouse quantity or change inventory value.
+
+**Who uses it.** Purchasing staff, then an approver, then someone who can post.
+
+**New return** opens `/supplier-returns/new`.
+
+| Label | Required | Allowed values | Example | Effect |
+| --- | --- | --- | --- | --- |
+| Supplier | Yes | Active suppliers. | Example: `S001 Harbor Paper` | Loads that supplier’s posted bills. |
+| Branch | Yes | Branches you can access. | Example: `HQ Head office` | Stored on the return. |
+| Date | Yes | A calendar date. | Example: `2026-03-20` | The return date. |
+| Reason | Yes | 1 to 500 characters. | Example: `Damaged ream` | Required for every return, including a linked one. |
+| Source | Yes | **Linked to a bill line** or **Unreferenced**. | Example: `Linked to a bill line` | Unreferenced needs the extra permission, a product, a price, a tax code or no tax, and a purchase expense account. |
+| Bill | Required when linked | A posted bill for this supplier. | Example: `BILL-00001` | A voided or reversed bill cannot be used. |
+| Bill line | Required when linked | A line on that bill. | Example: `Design consultation (3)` | The return uses that line’s saved price, tax, discount, and accounts. |
+| Product, unit price, tax code, purchase account | Required when unreferenced | An active product, a price, an optional tax code, and an expense account. | Example: purchase account `5100 Operating expenses` | These values are explicit. They are not copied from a bill. |
+| Quantity | Yes | A decimal greater than zero, not above the quantity still returnable on a linked line. | Example: `1` | Cumulative posted returns cannot exceed the source line. |
+| Disposition | Yes | **Restockable**, **Damaged**, or **Non-restockable**. | Example: `Damaged` | Stored only. It does not post stock. |
+| Create return | Button | — | — | Saves a draft. A quantity above the remainder is rejected. |
+
+The detail page shows description, quantity, price, tax, total, and disposition. **Submit**, **Approve**, **Post**, and **Reverse** follow the usual path. Posting locks the source line. The screen does not show Reject or Void.
+
+## 11. Reports
 
 Menu group: **Reports**. Every report needs `reports.view`. **Export CSV** also needs `reports.export`.
 
@@ -821,44 +974,90 @@ Menu: **Sales**. Route: `/reports/sales`. This item is on the Reports menu in ad
 
 The page shows **Total**. Columns are **Kind**, **Number**, **Date**, **Customer**, **Taxable**, **Tax**, and **Total**. Returns are negative. A reversal of an invoice is negative. A reversal of a return is positive. Receipts are not in this report. The figures follow the documents’ saved totals, not a separate inventory cost.
 
-## 11. What the screens do not offer yet
+### Payables aging
+
+Menu: **Payables aging**. Route: `/reports/payables-aging`.
+
+**Purpose.** Open posted supplier bills as of a posting date, grouped by how late they are. Unapplied supplier advances are not included. The report runs only when the payable subledger equals the payable control account.
+
+| Label | Required | Meaning | Example |
+| --- | --- | --- | --- |
+| As of | Yes | The last posting date included. | Example: `2026-03-31` |
+| Run, Export CSV, Print / PDF | Same as the other reports. | — | — |
+
+Columns are **Bill**, **Supplier**, **Due**, **Open**, and **Bucket**. The page shows the open total.
+
+### Supplier statement
+
+Menu: **Supplier statement**. Route: `/reports/supplier-statement`.
+
+**Purpose.** One supplier’s payable balance between two posting dates. The running balance is the payable subledger. Unapplied advances are not part of this balance.
+
+| Label | Required | Meaning | Example |
+| --- | --- | --- | --- |
+| From | Yes | First posting date. | Example: `2026-03-01` |
+| To | Yes | Last posting date. | Example: `2026-03-31` |
+| Supplier | Yes | The supplier. | Example: `S001 Harbor Paper` |
+
+The page shows opening and closing balances. Columns are **Kind**, **Number**, **Date**, **Amount**, and **Balance**. A bill increases the balance. A return, a direct payment, and an advance application decrease it.
+
+### Purchases
+
+Menu: **Purchases**. Route: `/reports/purchases`.
+
+**Purpose.** Posted supplier bills, posted supplier returns, and their reversals, by posting date. The totals follow the documents, not an inventory cost.
+
+Columns are **Kind**, **Number**, **Date**, **Supplier**, **Taxable**, **Tax**, and **Total**. A return is negative. A reversal of a bill is negative. A reversal of a return is positive. Payments are not in this report.
+
+### Supplier returns report
+
+Menu: **Supplier returns report**. Route: `/reports/supplier-returns`.
+
+**Purpose.** Posted supplier returns and their reversals, by posting date.
+
+The columns match **Purchases**. A return is positive here. A reversal of a return is negative.
+
+## 12. What the screens do not offer yet
 
 These items are not on the pages described above. Do not expect to complete them by clicking through the menu.
 
 | Item | What is missing |
 | --- | --- |
-| Suppliers, bills, and payables | Not in the menu. Not part of this version. |
-| Inventory quantity, stock value, and cost of goods sold | Not calculated. A product type of Stock is only a label. |
+| Inventory quantity and stock movements | Not calculated. A product type of Stock is only a label. Supplier bills and returns do not receive or issue quantity. That handling belongs to a later phase. |
+| Inventory value and cost of goods sold | Not calculated. Purchases post to the purchase expense account. Costing and valuation belong to a later phase, after the costing method is chosen. |
+| ATL tracking and FBR/IRIS connections | Not stored and not connected. |
 | Edit or deactivate a user, and assign branches | The Users page describes a later edit, but no edit form is shown. New users can access every branch. |
 | Edit an existing role | You can create a role and read existing ones. There is no edit button. |
 | Edit, deactivate, or delete an account | You can add an account and read the list. |
 | Edit a branch, or enter its city | You can add a branch. The list shows code, name, and active status. |
-| Retire a tax code | You can add a code and set its sales tax account. There is no retire button. |
-| More than one invoice line | The new-invoice form has one product line. |
-| Edit a draft invoice, receipt, or return | A draft invoice can change the line discount and tax code. It cannot change the customer, quantity, or price on that page. Receipt and return detail pages do not show an edit form. |
-| Reject or void an invoice, receipt, or return from the screen | Journals have these buttons. The sales documents do not. |
+| Retire a tax code | You can add a code and set its sales and purchase tax accounts. There is no retire button. |
+| More than one invoice or bill line | The new-invoice form and the new-bill form each have one product line. |
+| Edit a draft invoice, receipt, return, bill, or supplier payment | A draft invoice or bill can change the line discount and tax code. It cannot change the party, quantity, or price on that page. Receipt, payment, and return detail pages do not show an edit form. |
+| Reject or void a sales or purchasing document from the screen | Journals have these buttons. Invoices, receipts, customer returns, bills, supplier payments, and supplier returns do not. |
 | Reverse or void a receipt from the screen | You can unallocate. The receipt page has no Reverse or Void button. |
 | Unreferenced customer return | Not on the form. Every return from the screen must name an invoice line. |
-| Return condition other than restockable | Not on the form. The stored value does not change the accounts. |
-| Customer opening balance by customer | There is no screen. A manual journal still cannot use the receivable control account. An opening-balance journal can use it only when customer amounts equal that line, and those amounts cannot be entered here. |
+| Customer return condition other than restockable | Not on the customer-return form. The stored value does not change the accounts. Supplier returns do ask for a disposition, and that value still does not move stock. |
+| Customer or supplier opening balances | There is no screen. A manual journal cannot use the receivable or payable control account. An opening-balance journal can use one only when the matching customer or supplier amounts equal that line, and those amounts cannot be entered here. |
 | Search boxes | Most lists do not show a search field, even where the system could filter. Long lists stop at 50 or 100 rows. |
 
-## 12. Glossary
+## 13. Glossary
 
 | Term | Meaning in this system |
 | --- | --- |
 | Chart of accounts | The numbered list of asset, liability, equity, income, and expense accounts. |
-| Journal | A set of debit and credit lines. A manual journal is typed by a person. Invoices, receipts, and returns create journals when they are posted. |
+| Journal | A set of debit and credit lines. A manual journal is typed by a person. Invoices, receipts, returns, supplier bills, supplier payments, and supplier returns create journals when they are posted. |
 | Debit | The left amount on a journal line. It increases assets and expenses. |
 | Credit | The right amount on a journal line. It increases liabilities, equity, and income. |
 | Posting | The step that puts an approved document into the ledger. Reports use posted items only. |
 | Reversal | A new posted journal that swaps the original debits and credits. This is how a posted item is corrected. |
 | Fiscal period | A month inside a fiscal year. Posting is allowed only while that month and its year are open. |
-| Control account | A summary account, such as accounts receivable. Customer documents keep the detail. The totals must match before a receivables report will run. |
+| Control account | A summary account, such as accounts receivable or accounts payable. Customer or supplier documents keep the detail. The totals must match before the matching aging or statement report will run. |
 | Receivable | Money a customer owes the company. |
-| Tax code | A named percentage, a start date, and, when the rate is above zero, a sales tax liability account. It does not certify a country’s tax rules. The invoice screen asks for the code. It does not ask for the tax account. |
-| Aging | A report of open invoices grouped by how many days have passed since the due date. |
-| Allocation | Applying part or all of a receipt to a posted invoice. |
+| Payable | Money the company owes a supplier. |
+| Tax code | A named percentage and a start date. A rate above zero needs a sales tax liability, a purchase tax asset, or both. It does not certify a country’s tax rules. Invoice and bill screens ask for the code. They do not ask for the tax account. |
+| Aging | A report of open invoices or open bills grouped by how many days have passed since the due date. Unapplied advances are excluded. |
+| Allocation | Applying part or all of a receipt to a posted invoice, or part or all of a supplier payment to a posted bill. |
 | Customer advance | Money received that is not yet applied to an invoice. It is held in a liability account when that sales setting is in use. |
+| Supplier advance | Money paid to a supplier that is not yet applied to a bill. It is held in an asset account. It is excluded from payables aging. |
 | Draft | A saved document that is not in the official reports. |
-| Branch | A location stored on sales documents. Company Admin can see every branch. |
+| Branch | A location stored on sales and purchasing documents. Company Admin can see every branch. |

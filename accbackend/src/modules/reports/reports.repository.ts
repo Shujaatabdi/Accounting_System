@@ -327,3 +327,220 @@ export async function selectStatementLines(db: Sql, params: unknown[]) {
     params,
   );
 }
+
+const payableAllocationSql = `
+  (
+    (p.ap_treatment = 'direct_ap' AND a.journal_entry_id = p.journal_entry_id AND p.journal_entry_id IN (SELECT id FROM active_journals))
+    OR (p.ap_treatment = 'supplier_advance' AND a.journal_entry_id IN (SELECT id FROM active_journals) AND a.journal_entry_id IS DISTINCT FROM p.journal_entry_id)
+  )`;
+
+export async function selectApControlId(db: Sql = { query }) {
+  return db.query<{ ap_control_account_id: string | null }>("SELECT ap_control_account_id FROM purchasing_settings WHERE id = 1");
+}
+
+export async function selectApGl(db: Sql, params: unknown[]) {
+  return db.query<{ amount: string }>(
+    `SELECT COALESCE(SUM(jl.credit - jl.debit), 0)::text AS amount
+       FROM journal_lines jl
+       JOIN journal_entries je ON je.id = jl.journal_entry_id
+      WHERE je.status = 'posted'
+        AND je.posting_date <= $1::date
+        AND jl.account_id = (SELECT ap_control_account_id FROM purchasing_settings WHERE id = 1)
+        AND ($2::uuid IS NULL OR $2::uuid IS NOT NULL)
+        AND ($3::uuid IS NULL OR jl.branch_id = $3)
+        AND ($4::uuid[] IS NULL OR jl.branch_id = ANY($4))`,
+    params,
+  );
+}
+
+export async function selectApSubledger(db: Sql, params: unknown[]) {
+  return db.query<{ amount: string }>(
+    `WITH ${activeJournals}
+     SELECT (
+       COALESCE((
+         SELECT SUM(d.amount) FROM supplier_opening_details d
+           JOIN journal_lines jl ON jl.id = d.journal_line_id
+           JOIN active_journals aj ON aj.id = jl.journal_entry_id
+          WHERE ($2::uuid IS NULL OR d.supplier_id = $2)
+            AND ($3::uuid IS NULL OR jl.branch_id = $3)
+            AND ($4::uuid[] IS NULL OR jl.branch_id = ANY($4))
+       ), 0)
+       + COALESCE((
+         SELECT SUM(b.total) FROM supplier_bills b
+           JOIN active_journals aj ON aj.id = b.journal_entry_id
+          WHERE ($2::uuid IS NULL OR b.supplier_id = $2)
+            AND ($3::uuid IS NULL OR b.branch_id = $3)
+            AND ($4::uuid[] IS NULL OR b.branch_id = ANY($4))
+       ), 0)
+       - COALESCE((
+         SELECT SUM(r.total) FROM supplier_returns r
+           JOIN active_journals aj ON aj.id = r.journal_entry_id
+          WHERE ($2::uuid IS NULL OR r.supplier_id = $2)
+            AND ($3::uuid IS NULL OR r.branch_id = $3)
+            AND ($4::uuid[] IS NULL OR r.branch_id = ANY($4))
+       ), 0)
+       - COALESCE((
+         SELECT SUM(p.amount) FROM supplier_payments p
+           JOIN active_journals aj ON aj.id = p.journal_entry_id
+          WHERE p.ap_treatment = 'direct_ap'
+            AND ($2::uuid IS NULL OR p.supplier_id = $2)
+            AND ($3::uuid IS NULL OR p.branch_id = $3)
+            AND ($4::uuid[] IS NULL OR p.branch_id = ANY($4))
+       ), 0)
+       - COALESCE((
+         SELECT SUM(a.amount) FROM supplier_payment_allocations a
+           JOIN supplier_payments p ON p.id = a.supplier_payment_id
+          WHERE p.ap_treatment = 'supplier_advance'
+            AND a.journal_entry_id IN (SELECT id FROM active_journals)
+            AND a.journal_entry_id IS DISTINCT FROM p.journal_entry_id
+            AND ($2::uuid IS NULL OR p.supplier_id = $2)
+            AND ($3::uuid IS NULL OR p.branch_id = $3)
+            AND ($4::uuid[] IS NULL OR p.branch_id = ANY($4))
+       ), 0)
+     )::text AS amount`,
+    params,
+  );
+}
+
+export async function selectOpenBills(db: Sql, params: unknown[]) {
+  return db.query<{
+    id: string;
+    bill_number: string;
+    supplier_id: string;
+    supplier_name: string;
+    bill_date: string;
+    due_date: string;
+    open_amount: string;
+  }>(
+    `WITH ${activeJournals}
+     SELECT b.id, b.bill_number, b.supplier_id, s.display_name AS supplier_name,
+            b.bill_date::text, b.due_date::text,
+            (b.total
+              - COALESCE((SELECT SUM(r.total) FROM supplier_returns r JOIN active_journals raj ON raj.id = r.journal_entry_id WHERE r.supplier_bill_id = b.id), 0)
+              - COALESCE((
+                  SELECT SUM(a.amount) FROM supplier_payment_allocations a
+                    JOIN supplier_payments p ON p.id = a.supplier_payment_id
+                   WHERE a.supplier_bill_id = b.id AND ${payableAllocationSql}
+                ), 0)
+            )::text AS open_amount
+       FROM supplier_bills b
+       JOIN suppliers s ON s.id = b.supplier_id
+       JOIN active_journals aj ON aj.id = b.journal_entry_id
+      WHERE ($2::uuid IS NULL OR b.supplier_id = $2)
+        AND ($3::uuid IS NULL OR b.branch_id = $3)
+        AND ($4::uuid[] IS NULL OR b.branch_id = ANY($4))
+      ORDER BY b.due_date, b.bill_number`,
+    params,
+  );
+}
+
+export async function selectPurchaseActivity(db: Sql, params: unknown[]) {
+  return db.query<{ kind: string; number: string; doc_date: string; supplier_name: string; taxable: string; tax: string; total: string }>(
+    `SELECT kind, number, doc_date::text, supplier_name, taxable::text, tax::text, total::text FROM (
+       SELECT 'supplier_bill' AS kind, b.bill_number AS number, je.posting_date AS doc_date, s.display_name AS supplier_name,
+              b.taxable_total AS taxable, b.tax_total AS tax, b.total AS total, b.branch_id
+         FROM supplier_bills b
+         JOIN journal_entries je ON je.id = b.journal_entry_id
+         JOIN suppliers s ON s.id = b.supplier_id
+        WHERE je.status = 'posted' AND je.posting_date BETWEEN $1::date AND $2::date
+       UNION ALL
+       SELECT 'supplier_return', r.return_number, je.posting_date, s.display_name, -r.taxable_total, -r.tax_total, -r.total, r.branch_id
+         FROM supplier_returns r
+         JOIN journal_entries je ON je.id = r.journal_entry_id
+         JOIN suppliers s ON s.id = r.supplier_id
+        WHERE je.status = 'posted' AND je.posting_date BETWEEN $1::date AND $2::date
+       UNION ALL
+       SELECT 'reversal', je.entry_number, je.posting_date, s.display_name, -b.taxable_total, -b.tax_total, -b.total, b.branch_id
+         FROM journal_entries je
+         JOIN journal_entries orig ON orig.id = je.reverses_entry_id
+         JOIN supplier_bills b ON b.journal_entry_id = orig.id
+         JOIN suppliers s ON s.id = b.supplier_id
+        WHERE je.status = 'posted' AND je.source_type = 'reversal' AND je.posting_date BETWEEN $1::date AND $2::date
+       UNION ALL
+       SELECT 'reversal', je.entry_number, je.posting_date, s.display_name, r.taxable_total, r.tax_total, r.total, r.branch_id
+         FROM journal_entries je
+         JOIN journal_entries orig ON orig.id = je.reverses_entry_id
+         JOIN supplier_returns r ON r.journal_entry_id = orig.id
+         JOIN suppliers s ON s.id = r.supplier_id
+        WHERE je.status = 'posted' AND je.source_type = 'reversal' AND je.posting_date BETWEEN $1::date AND $2::date
+     ) activity
+     WHERE ($3::uuid IS NULL OR branch_id = $3)
+       AND ($4::uuid[] IS NULL OR branch_id = ANY($4))
+     ORDER BY doc_date, number`,
+    params,
+  );
+}
+
+export async function selectSupplierReturnActivity(db: Sql, params: unknown[]) {
+  return db.query<{ kind: string; number: string; doc_date: string; supplier_name: string; taxable: string; tax: string; total: string }>(
+    `SELECT kind, number, doc_date::text, supplier_name, taxable::text, tax::text, total::text FROM (
+       SELECT 'supplier_return' AS kind, r.return_number AS number, je.posting_date AS doc_date, s.display_name AS supplier_name,
+              r.taxable_total AS taxable, r.tax_total AS tax, r.total AS total, r.branch_id
+         FROM supplier_returns r
+         JOIN journal_entries je ON je.id = r.journal_entry_id
+         JOIN suppliers s ON s.id = r.supplier_id
+        WHERE je.status = 'posted' AND je.posting_date BETWEEN $1::date AND $2::date
+       UNION ALL
+       SELECT 'reversal', je.entry_number, je.posting_date, s.display_name, -r.taxable_total, -r.tax_total, -r.total, r.branch_id
+         FROM journal_entries je
+         JOIN journal_entries orig ON orig.id = je.reverses_entry_id
+         JOIN supplier_returns r ON r.journal_entry_id = orig.id
+         JOIN suppliers s ON s.id = r.supplier_id
+        WHERE je.status = 'posted' AND je.source_type = 'reversal' AND je.posting_date BETWEEN $1::date AND $2::date
+     ) activity
+     WHERE ($3::uuid IS NULL OR branch_id = $3)
+       AND ($4::uuid[] IS NULL OR branch_id = ANY($4))
+     ORDER BY doc_date, number`,
+    params,
+  );
+}
+
+export async function selectSupplierStatementLines(db: Sql, params: unknown[]) {
+  return db.query<{ kind: string; number: string; doc_date: string; total: string }>(
+    `SELECT kind, number, doc_date::text, total::text FROM (
+       SELECT 'supplier_bill' AS kind, b.bill_number AS number, je.posting_date AS doc_date, b.total AS total, b.branch_id, b.supplier_id
+         FROM supplier_bills b JOIN journal_entries je ON je.id = b.journal_entry_id
+        WHERE je.status = 'posted'
+       UNION ALL
+       SELECT 'supplier_return', r.return_number, je.posting_date, -r.total, r.branch_id, r.supplier_id
+         FROM supplier_returns r JOIN journal_entries je ON je.id = r.journal_entry_id
+        WHERE je.status = 'posted'
+       UNION ALL
+       SELECT 'supplier_payment', p.payment_number, je.posting_date, -p.amount, p.branch_id, p.supplier_id
+         FROM supplier_payments p JOIN journal_entries je ON je.id = p.journal_entry_id
+        WHERE je.status = 'posted' AND p.ap_treatment = 'direct_ap'
+       UNION ALL
+       SELECT 'allocation', p.payment_number, je.posting_date, -a.amount, p.branch_id, p.supplier_id
+         FROM supplier_payment_allocations a
+         JOIN supplier_payments p ON p.id = a.supplier_payment_id
+         JOIN journal_entries je ON je.id = a.journal_entry_id
+        WHERE je.status = 'posted' AND p.ap_treatment = 'supplier_advance' AND a.journal_entry_id IS DISTINCT FROM p.journal_entry_id
+       UNION ALL
+       SELECT 'reversal', je.entry_number, je.posting_date,
+              CASE
+                WHEN b.id IS NOT NULL THEN -b.total
+                WHEN r.id IS NOT NULL THEN r.total
+                WHEN p.id IS NOT NULL THEN p.amount
+                WHEN a.id IS NOT NULL THEN a.amount
+                ELSE 0
+              END,
+              COALESCE(b.branch_id, r.branch_id, p.branch_id, pay.branch_id),
+              COALESCE(b.supplier_id, r.supplier_id, p.supplier_id, pay.supplier_id)
+         FROM journal_entries je
+         JOIN journal_entries orig ON orig.id = je.reverses_entry_id
+         LEFT JOIN supplier_bills b ON b.journal_entry_id = orig.id
+         LEFT JOIN supplier_returns r ON r.journal_entry_id = orig.id
+         LEFT JOIN supplier_payments p ON p.journal_entry_id = orig.id AND p.ap_treatment = 'direct_ap'
+         LEFT JOIN supplier_payment_allocations a ON a.journal_entry_id = orig.id
+         LEFT JOIN supplier_payments pay ON pay.id = a.supplier_payment_id AND pay.ap_treatment = 'supplier_advance' AND a.journal_entry_id IS DISTINCT FROM pay.journal_entry_id
+        WHERE je.status = 'posted' AND je.source_type = 'reversal'
+          AND (b.id IS NOT NULL OR r.id IS NOT NULL OR p.id IS NOT NULL OR pay.id IS NOT NULL)
+     ) lines
+     WHERE supplier_id = $1
+       AND doc_date BETWEEN $2::date AND $3::date
+       AND ($4::uuid IS NULL OR branch_id = $4)
+       AND ($5::uuid[] IS NULL OR branch_id = ANY($5))
+     ORDER BY doc_date, number`,
+    params,
+  );
+}

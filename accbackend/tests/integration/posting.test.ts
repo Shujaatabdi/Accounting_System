@@ -414,3 +414,152 @@ test("sales invoices, partial returns, and receipts stay within the receivable c
   assert.equal(closed.status, 200, JSON.stringify(closed.body));
   assert.equal(closed.body.totals.open, "0.0000");
 });
+
+test("supplier bills, partial returns, and payments stay within the payable control account", async () => {
+  const auth = { Authorization: `Bearer ${token}` };
+  const accounts = await request(app).get("/api/v1/accounts?postable=true&pageSize=100").set(auth);
+  const byCode = (code: string) => accounts.body.data.find((row: { code: string }) => row.code === code);
+  const payable = byCode("2100");
+  const expense = byCode("5100");
+  const sales = byCode("4100");
+  const cash = byCode("1110");
+  assert.ok(payable && expense && sales && cash);
+  const years = await request(app).get("/api/v1/fiscal-years").set(auth);
+  const postingDate = years.body.data[0].periods[0].startDate as string;
+  const branches = await request(app).get("/api/v1/branches?pageSize=10").set(auth);
+  const branchId = branches.body.data[0].id as string;
+
+  const manualPayable = await request(app).post("/api/v1/journals").set(auth).send({
+    entryDate: postingDate,
+    description: "Manual payable",
+    sourceType: "manual",
+    lines: [
+      { accountId: expense.id, debit: "5.00", credit: "0.00" },
+      { accountId: payable.id, debit: "0.00", credit: "5.00" },
+    ],
+  });
+  assert.equal(manualPayable.status, 409);
+
+  const inputTax = await request(app).post("/api/v1/accounts").set(auth).send({
+    code: "1410", name: "Input tax", accountType: "asset", isHeader: false, isControl: false, isActive: true,
+  });
+  assert.equal(inputTax.status, 201, JSON.stringify(inputTax.body));
+  const taxCode = await request(app).post("/api/v1/tax-codes").set(auth).send({
+    code: "IN10", name: "Input 10", ratePercent: "10", purchaseAccountId: inputTax.body.id, effectiveFrom: postingDate,
+  });
+  assert.equal(taxCode.status, 201, JSON.stringify(taxCode.body));
+  const supplier = await request(app).post("/api/v1/suppliers").set(auth).send({
+    code: "S001", legalName: "Harbor Paper", displayName: "Harbor Paper", paymentTermsDays: 30,
+    isActive: true, addresses: [], contacts: [],
+  });
+  assert.equal(supplier.status, 201, JSON.stringify(supplier.body));
+  const bare = await request(app).post("/api/v1/products").set(auth).send({
+    sku: "BUY-BARE", name: "Unmapped purchase", itemType: "service", salesPrice: "10.00",
+    salesAccountId: sales.id, returnAccountId: sales.id, isActive: true, units: [],
+  });
+  assert.equal(bare.status, 201, JSON.stringify(bare.body));
+  const missingAccount = await request(app).post("/api/v1/bills").set(auth).send({
+    supplierId: supplier.body.id, branchId, billDate: postingDate,
+    lines: [{ productId: bare.body.id, quantity: "1", unitPrice: "10.00" }],
+  });
+  assert.equal(missingAccount.status, 400);
+
+  const product = await request(app).post("/api/v1/products").set(auth).send({
+    sku: "BUY-1", name: "Purchased service", itemType: "service", salesPrice: "10.00", taxCodeId: taxCode.body.id,
+    salesAccountId: sales.id, returnAccountId: sales.id, purchaseAccountId: expense.id, isActive: true, units: [],
+  });
+  assert.equal(product.status, 201, JSON.stringify(product.body));
+  const bill = await request(app).post("/api/v1/bills").set(auth).send({
+    supplierId: supplier.body.id, branchId, billDate: postingDate,
+    lines: [{ productId: product.body.id, quantity: "3", unitPrice: "10.00", taxCodeId: taxCode.body.id }],
+  });
+  assert.equal(bill.status, 201, JSON.stringify(bill.body));
+  assert.equal(bill.body.total, "33.0000");
+  const billId = bill.body.id as string;
+  const lineId = bill.body.lines[0].id as string;
+  assert.equal((await request(app).post(`/api/v1/bills/${billId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/bills/${billId}/approve`).set(auth)).status, 200);
+  const posted = await request(app).post(`/api/v1/bills/${billId}/post`).set(auth).send({});
+  assert.equal(posted.status, 200, JSON.stringify(posted.body));
+
+  const partial = await request(app).post("/api/v1/supplier-returns").set(auth).send({
+    supplierId: supplier.body.id, branchId, returnDate: postingDate, reason: "Partial", unreferenced: false,
+    lines: [{ billLineId: lineId, quantity: "1", disposition: "restockable" }],
+  });
+  assert.equal(partial.status, 201, JSON.stringify(partial.body));
+  assert.equal(partial.body.total, "11.0000");
+  const returnId = partial.body.id as string;
+  assert.equal((await request(app).post(`/api/v1/supplier-returns/${returnId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/supplier-returns/${returnId}/approve`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/supplier-returns/${returnId}/post`).set(auth)).status, 200);
+
+  const tooMuch = await request(app).post("/api/v1/supplier-returns").set(auth).send({
+    supplierId: supplier.body.id, branchId, returnDate: postingDate, reason: "Too much", unreferenced: false,
+    lines: [{ billLineId: lineId, quantity: "3", disposition: "damaged" }],
+  });
+  assert.equal(tooMuch.status, 409);
+  const blockedReverse = await request(app).post(`/api/v1/bills/${billId}/reverse`).set(auth).send({ reason: "Too soon" });
+  assert.equal(blockedReverse.status, 409);
+
+  const direct = await request(app).post("/api/v1/supplier-payments").set(auth).send({
+    supplierId: supplier.body.id, branchId, paymentDate: postingDate, cashAccountId: cash.id, amount: "10.00",
+    allocations: [{ billId, amount: "10.00" }],
+  });
+  assert.equal(direct.status, 201, JSON.stringify(direct.body));
+  const directId = direct.body.id as string;
+  assert.equal((await request(app).post(`/api/v1/supplier-payments/${directId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/supplier-payments/${directId}/approve`).set(auth)).status, 200);
+  const directPosted = await request(app).post(`/api/v1/supplier-payments/${directId}/post`).set(auth);
+  assert.equal(directPosted.status, 200, JSON.stringify(directPosted.body));
+  assert.equal(directPosted.body.apTreatment, "direct_ap");
+
+  const earlyAdvance = await request(app).post("/api/v1/supplier-payments").set(auth).send({
+    supplierId: supplier.body.id, branchId, paymentDate: postingDate, cashAccountId: cash.id, amount: "5.00", allocations: [],
+  });
+  assert.equal(earlyAdvance.status, 201, JSON.stringify(earlyAdvance.body));
+  const advancePaymentId = earlyAdvance.body.id as string;
+  assert.equal((await request(app).post(`/api/v1/supplier-payments/${advancePaymentId}/submit`).set(auth)).status, 200);
+  assert.equal((await request(app).post(`/api/v1/supplier-payments/${advancePaymentId}/approve`).set(auth)).status, 200);
+  const blockedAdvance = await request(app).post(`/api/v1/supplier-payments/${advancePaymentId}/post`).set(auth);
+  assert.equal(blockedAdvance.status, 409);
+  assert.match(String(blockedAdvance.body.error?.message ?? ""), /supplier advance asset account/i);
+
+  const advances = await request(app).post("/api/v1/accounts").set(auth).send({
+    code: "1510", name: "Supplier advances", accountType: "asset", isHeader: false, isControl: false, isActive: true,
+  });
+  assert.equal(advances.status, 201, JSON.stringify(advances.body));
+  const currentSettings = await request(app).get("/api/v1/purchasing-settings").set(auth);
+  assert.equal(currentSettings.status, 200, JSON.stringify(currentSettings.body));
+  const settings = await request(app).put("/api/v1/purchasing-settings").set(auth).send({
+    taxPricingMode: "exclusive",
+    apControlAccountId: currentSettings.body.apControlAccountId,
+    supplierAdvanceAccountId: advances.body.id,
+    showSupplierTaxIdentifiers: false,
+  });
+  assert.equal(settings.status, 200, JSON.stringify(settings.body));
+  const advancePosted = await request(app).post(`/api/v1/supplier-payments/${advancePaymentId}/post`).set(auth);
+  assert.equal(advancePosted.status, 200, JSON.stringify(advancePosted.body));
+  assert.equal(advancePosted.body.apTreatment, "supplier_advance");
+
+  const beforeApply = await request(app).get(`/api/v1/reports/payables-aging?asOf=${postingDate}`).set(auth);
+  assert.equal(beforeApply.status, 200, JSON.stringify(beforeApply.body));
+  assert.equal(beforeApply.body.totals.open, "12.0000");
+
+  const applied = await request(app).post(`/api/v1/supplier-payments/${advancePaymentId}/allocations`).set(auth).send({ billId, amount: "5.00" });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  const aging = await request(app).get(`/api/v1/reports/payables-aging?asOf=${postingDate}`).set(auth);
+  assert.equal(aging.status, 200, JSON.stringify(aging.body));
+  assert.equal(aging.body.totals.open, "7.0000");
+  const statement = await request(app).get(`/api/v1/reports/supplier-statement?supplierId=${supplier.body.id}&from=${postingDate}&to=${postingDate}`).set(auth);
+  assert.equal(statement.status, 200, JSON.stringify(statement.body));
+  assert.equal(statement.body.closingBalance, "7.0000");
+  const purchases = await request(app).get(`/api/v1/reports/purchases?from=${postingDate}&to=${postingDate}`).set(auth);
+  assert.equal(purchases.status, 200, JSON.stringify(purchases.body));
+  assert.equal(purchases.body.total, "22.0000");
+  const returns = await request(app).get(`/api/v1/reports/supplier-returns?from=${postingDate}&to=${postingDate}`).set(auth);
+  assert.equal(returns.status, 200, JSON.stringify(returns.body));
+  assert.equal(returns.body.total, "11.0000");
+  const trial = await request(app).get(`/api/v1/reports/trial-balance?asOf=${postingDate}`).set(auth);
+  assert.equal(trial.body.balances, true);
+  assert.equal(trial.body.totalDebit, trial.body.totalCredit);
+});

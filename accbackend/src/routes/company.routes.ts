@@ -7,10 +7,12 @@ import {
   listTaxCodesController,
   retireTaxCodeController,
   updateTaxCodeAccountsController,
+  getPurchasingSettingsController,
   getSalesSettingsController,
   updateAccountingProfileController,
   updateCompanyController,
   updateNumberingController,
+  updatePurchasingSettingsController,
   updateSalesSettingsController,
 } from "../controllers/company.controller";
 import { requirePermission } from "../middleware/authorize";
@@ -24,6 +26,8 @@ companyRouter.get("/accounting-profile", requirePermission("accounting_profile.v
 companyRouter.put("/accounting-profile", requirePermission("accounting_profile.update"), updateAccountingProfileController);
 companyRouter.get("/sales-settings", requirePermission("accounting_profile.view"), getSalesSettingsController);
 companyRouter.put("/sales-settings", requirePermission("accounting_profile.update"), updateSalesSettingsController);
+companyRouter.get("/purchasing-settings", requirePermission("accounting_profile.view"), getPurchasingSettingsController);
+companyRouter.put("/purchasing-settings", requirePermission("accounting_profile.update"), updatePurchasingSettingsController);
 companyRouter.get("/tax-codes", requirePermission("tax_codes.view"), listTaxCodesController);
 companyRouter.post("/tax-codes", requirePermission("tax_codes.manage"), createTaxCodeController);
 companyRouter.put("/tax-codes/:id", requirePermission("tax_codes.manage"), updateTaxCodeAccountsController);
