@@ -10,6 +10,7 @@ import { selectCurrencyScale, selectRequireDistinctApprover } from "../company/c
 import { allocateNumber } from "../company/numbering.service";
 import { selectSalesSettings } from "../company/sales.repository";
 import { assertMappedSalesTaxAccount } from "../company/tax.service";
+import { atlSnapshotView } from "../../shared/atl";
 import { displayCnicNtn } from "../customers/customer-tax";
 import { selectExposure } from "../customers/customers.repository";
 import {
@@ -32,6 +33,7 @@ import {
   selectCustomerForSale,
   selectInvoice,
   lockCustomerTaxProfile,
+  setInvoiceAtlSnapshot,
   selectInvoiceLines,
   selectInvoices,
   selectProductForSale,
@@ -185,6 +187,7 @@ export async function postInvoice(id: string, input: { postingDate?: string; ove
     });
     const profile = one((await lockCustomerTaxProfile(client, current.customerId)).rows, "Customer not found.");
     await setInvoiceCustomerTaxSnapshot(client, id, customerTaxSnapshot(settings.show_customer_tax_identifiers, profile));
+    await setInvoiceAtlSnapshot(client, id, profile.atl_status, profile.atl_checked_at, profile.atl_reference);
     await setInvoiceStatus(client, id, "status = 'posted', journal_entry_id = $2, posted_at = now(), posted_by = $3", [journalId, meta.actor.id]);
     const saved = await load(client, id, meta.actor, false);
     await audit(client, meta, "invoices.post", id, `Posted ${saved.invoiceNumber}`, current, saved);
@@ -331,6 +334,7 @@ async function load(db: Sql, id: string, actor: AuthUser, lock: boolean) {
     ...mapHeader(row),
     lines: lines.rows.map(mapLine),
     customerTaxIdentifiers: customerTaxDisplay(row, settings.show_customer_tax_identifiers),
+    atlSnapshot: atlSnapshotView(row.snapshot_atl_captured, row.snapshot_atl_status, row.snapshot_atl_checked_at, row.snapshot_atl_reference),
   };
 }
 

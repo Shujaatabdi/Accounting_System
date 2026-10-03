@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AtlSnapshotCard, type AtlSnapshot } from "@/components/AtlRecord";
 import { api } from "@/lib/api/client";
 
 type Line = {
@@ -37,6 +38,7 @@ type Invoice = {
   taxTotal: string;
   lines: Line[];
   customerTaxIdentifiers: TaxDetails;
+  atlSnapshot: AtlSnapshot;
 };
 type TaxCode = { id: string; code: string; name: string; isActive: boolean };
 
@@ -119,6 +121,7 @@ export default function InvoiceDetailScreen({ id }: { id: string }) {
           {details.strn ? <p>STRN {details.strn}</p> : null}
         </div>
       ) : null}
+      <AtlSnapshotCard title="ATL at posting" snapshot={invoice.atlSnapshot} />
       <div className="card">
         <table>
           <thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Discount</th><th>Tax code</th><th>Tax</th><th>Total</th></tr></thead>

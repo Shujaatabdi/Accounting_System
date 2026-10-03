@@ -1,6 +1,6 @@
 # Data model
 
-PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundation.sql`, `002_customers_sales.sql`, `003_customer_tax_profile.sql`, and `004_suppliers_purchasing.sql`. Later phases add new migrations; they do not rewrite an applied file.
+PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundation.sql`, `002_customers_sales.sql`, `003_customer_tax_profile.sql`, `004_suppliers_purchasing.sql`, `005_role_code_format.sql`, and `006_manual_atl.sql`. Later phases add new migrations; they do not rewrite an applied file.
 
 ## Precision and identity
 
@@ -27,17 +27,17 @@ PostgreSQL 14 or newer. Migrations are `accbackend/src/db/migrations/001_foundat
 | `tax_codes` | Effective-dated rates and optional tax accounts |
 | `journal_entries`, `journal_lines` | Headers and lines. Posted lines snapshot account code and name. Source types include `invoice`, `receipt`, `receipt_allocation`, `customer_return`, `supplier_bill`, `supplier_payment`, `supplier_payment_allocation`, and `supplier_return` |
 | `sales_settings` | Tax pricing mode, discount treatment, unapplied-receipt treatment, receivable control account, optional customer-advance account, and `show_customer_tax_identifiers` (default false) |
-| `customers`, `customer_addresses`, `customer_contacts` | Customer master. Codes are unique. `tax_identifier` is generic. `tax_country_code`, `party_type`, `cnic_ntn`, `ntn_check_digit`, and `strn` are the optional Pakistan profile. `cnic_ntn` is 13 digits or 7 digits. The check digit is display only and is not verified |
+| `customers`, `customer_addresses`, `customer_contacts` | Customer master. Codes are unique. `tax_identifier` is generic. `tax_country_code`, `party_type`, `cnic_ntn`, `ntn_check_digit`, and `strn` are the optional Pakistan profile. `cnic_ntn` is 13 digits or 7 digits. The check digit is display only and is not verified. `atl_status`, `atl_checked_at`, `atl_reference`, `atl_recorded_by`, and `atl_recorded_at` are a manual ATL record. All five are empty together, or the status is `active` or `inactive` with the other four filled. A general customer update does not write them |
 | `customer_opening_details` | Customer amounts attached to an opening-balance receivable line. This is not a second journal |
 | `product_categories`, `units`, `products`, `product_units` | Catalog. `products.purchase_account_id` is an optional expense account. No quantity-on-hand balance |
 | `purchasing_settings` | Tax pricing mode, discount treatment, payable control account, optional supplier-advance asset, and `show_supplier_tax_identifiers` (default false) |
-| `suppliers`, `supplier_addresses`, `supplier_contacts` | Supplier master. Codes are unique. Tax fields follow the customer profile. A non-`PK` tax country stores no party type, CNIC/NTN, check digit, or STRN |
+| `suppliers`, `supplier_addresses`, `supplier_contacts` | Supplier master. Codes are unique. Tax fields follow the customer profile. A non-`PK` tax country stores no party type, CNIC/NTN, check digit, or STRN. The same ATL columns as a customer are stored separately and are not cleared by that save |
 | `supplier_opening_details` | Supplier amounts attached to an opening-balance payable line. This is not a second journal |
 | `product_suppliers` | Many suppliers per product. Stores supplier item code, purchase price, lead time, and one preferred supplier per product |
-| `supplier_bills`, `supplier_bill_lines` | Supplier bills. Posted lines store price, discount, tax mode, rate, base, tax, purchase account, and tax account. Posting may snapshot supplier tax details when the purchasing setting is on |
+| `supplier_bills`, `supplier_bill_lines` | Supplier bills. Posted lines store price, discount, tax mode, rate, base, tax, purchase account, and tax account. Posting may snapshot supplier tax details when the purchasing setting is on. Posting copies the supplier ATL record the same way an invoice copies a customer ATL record |
 | `supplier_payments`, `supplier_payment_allocations` | Supplier payments. `ap_treatment` is `direct_ap` or `supplier_advance` |
 | `supplier_returns`, `supplier_return_lines` | Debit notes. A linked line stores the source bill line. `disposition` is recorded and does not move quantity |
-| `invoices`, `invoice_lines` | Sales invoices. Posted lines store price, discount, tax mode, rate, base, tax, and accounts. Posting may snapshot customer tax details when the sales setting is on |
+| `invoices`, `invoice_lines` | Sales invoices. Posted lines store price, discount, tax mode, rate, base, tax, and accounts. Posting may snapshot customer tax details when the sales setting is on. Posting always sets `snapshot_atl_captured`. The status, check time, and reference are copied when the customer has an ATL record, and left empty when the customer does not. A posted snapshot cannot be changed. It does not affect tax or the journal |
 | `receipts`, `receipt_allocations` | Customer receipts and the invoices they pay |
 | `customer_returns`, `customer_return_lines` | Returns. A linked line stores the source invoice line |
 
@@ -69,4 +69,4 @@ Ordinary manual journals cannot post to the payable control account. Opening-bal
 
 ## Not in this schema
 
-Warehouse quantities, stock movements, inventory valuation, cost of goods sold, banks, and manufacturing tables. A purchase account is an expense. Do not infer inventory balances from the product catalog or from supplier bills and returns. Stock receipt and return quantities belong to Phase 4. Inventory costing and valuation belong to Phase 5.
+Warehouse quantities, stock movements, bank accounts, reconciliation, inventory valuation, cost of goods sold, and manufacturing tables. A purchase account is an expense. Do not infer inventory balances from the product catalog or from supplier bills and returns. Phase 4 inventory quantities and banking are deferred. Phase 5 costing and manufacturing depend on Phase 4 and remain last. Statutory returns and an FBR or IRIS connection are not stored. Manual ATL is a typed record, not a lookup.

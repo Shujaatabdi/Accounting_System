@@ -10,6 +10,7 @@ import { selectCurrencyScale, selectRequireDistinctApprover } from "../company/c
 import { allocateNumber } from "../company/numbering.service";
 import { selectPurchasingSettings } from "../company/purchasing.repository";
 import { assertMappedPurchaseTaxAccount } from "../company/tax.service";
+import { atlSnapshotView } from "../../shared/atl";
 import { displayCnicNtn } from "../customers/customer-tax";
 import {
   allowSystemPost,
@@ -38,6 +39,7 @@ import {
   selectTaxCode,
   selectUnitFactor,
   setBillStatus,
+  setBillAtlSnapshot,
   setBillTaxSnapshot,
   updateBill,
 } from "./bills.repository";
@@ -174,6 +176,7 @@ export async function postBill(id: string, input: { postingDate?: string }, meta
     });
     const profile = one((await lockSupplierTaxProfile(client, current.supplierId)).rows, "Supplier not found.");
     await setBillTaxSnapshot(client, id, supplierTaxSnapshot(settings.show_supplier_tax_identifiers, profile));
+    await setBillAtlSnapshot(client, id, profile.atl_status, profile.atl_checked_at, profile.atl_reference);
     await setBillStatus(client, id, "status = 'posted', journal_entry_id = $2, posted_at = now(), posted_by = $3", [journalId, meta.actor.id]);
     const saved = await load(client, id, meta.actor, false);
     await audit(client, meta, "bills.post", id, `Posted ${saved.billNumber}`, current, saved);
@@ -319,6 +322,7 @@ async function load(db: Sql, id: string, actor: AuthUser, lock: boolean) {
     ...mapHeader(row),
     lines: lines.rows.map(mapLine),
     supplierTaxIdentifiers: supplierTaxDisplay(row, settings.show_supplier_tax_identifiers),
+    atlSnapshot: atlSnapshotView(row.snapshot_atl_captured, row.snapshot_atl_status, row.snapshot_atl_checked_at, row.snapshot_atl_reference),
   };
 }
 

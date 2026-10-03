@@ -396,6 +396,8 @@ Special codes:
 | invoices.override_credit_limit | Allow posting an invoice above the customer’s credit limit. The invoice screen does not offer this. |
 | customer_returns.create_unreferenced | Allow a return that is not tied to an invoice line. The return screen does not offer this. |
 | reports.export | Show **Export CSV** on reports. |
+| customers.record_atl | Record or clear a manual ATL status on a customer. Company Admin already has this. It is in the Sales group. |
+| suppliers.record_atl | Record or clear a manual ATL status on a supplier. Company Admin already has this. It is in the Purchasing group. |
 
 ### Audit log
 
@@ -506,7 +508,7 @@ Menu: **Customers**. Route: `/customers`. View permission: `customers.view`. Cre
 
 **Who uses it.** Sales staff who can create customers, and anyone who needs the customer list.
 
-The page says customer balances are subledger detail and do not create a second receivable posting, and that a tax country does not choose a tax rate. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. Click a row to edit that customer. Saving an edit keeps addresses and contacts that were already stored. The form does not ask for a phone, email, address, or notes. A new customer is saved as active.
+The page says customer balances are subledger detail and do not create a second receivable posting, and that a tax country does not choose a tax rate. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. Click a row to edit that customer. Saving an edit keeps addresses and contacts that were already stored. The form does not ask for a phone, email, address, or notes. A new customer is saved as active. Saving the customer form does not change the ATL record. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -520,7 +522,9 @@ The page says customer balances are subledger detail and do not create a second 
 | Party type | Required when tax country is `PK` | **Individual**, **Company**, or **AOP**. | Example: `Company` | Hidden unless the tax country is `PK`. |
 | CNIC/NTN | Required when tax country is `PK` | Individual: 13 digits. Spaces and hyphens are ignored. Company or AOP: 7 digits, or 7 digits, a hyphen, and one check digit. | Example: `35202-1234567-1` for an individual. Example: `1234567` or `1234567-8` for a company or AOP. | The stored CNIC is the 13 digits. The stored NTN is the 7 digits. The check digit in `1234567-8` is stored separately so the printed form can be shown. It is not counted as part of the seven-digit NTN, and it is not verified. Eight digits without a hyphen, such as `12345678`, are rejected. |
 | STRN | Optional when tax country is `PK` | Up to 60 characters. No format is required. | Example: `12-34-5678-901-23` | Stored as text. Hidden unless the tax country is `PK`. |
-| Add customer / Save customer | Button | — | — | Saves the customer. It does not post a balance. **Cancel** appears while you are editing. |
+| Add customer / Save customer | Button | — | — | Saves the customer. It does not post a balance and it does not change the ATL record. **Cancel** appears while you are editing. |
+
+While a saved customer is open, **Manual ATL** appears only when the company country and the tax country in the form are both `PK`. It is separate from **Save customer**. The page says the status was entered manually and has not been verified by the application. Choose **Active** or **Inactive**, enter the check date and time and a reference of up to 160 characters, then press **Save ATL**. **Clear ATL** removes the stored status. A customer with no record says **Not recorded**. The block also shows who entered it and when. Saving needs `customers.record_atl`. Company Admin can save it. Someone with only `customers.view` can read it. Changing the tax country away from `PK` hides the block and keeps the stored record. Open the customer again after it is first saved before recording ATL. A new, unsaved customer has no ATL block.
 
 Table columns: **Code**, **Name**, **Tax country**, **CNIC/NTN** (the printed form when a check digit is stored), **Terms**, **Credit limit**, and **Status**. Click a row to edit it.
 
@@ -606,6 +610,8 @@ Example result: quantity `2` and price `150.00`, with no discount and no tax cod
 Route: `/invoices/{id}`.
 
 You see the number, customer, invoice date, due date, and status. When **Show customer tax identifiers** is on and this invoice was posted while that switch was on, a **Customer tax details** block shows the copy taken at posting. That copy can include tax country, the generic tax identifier, and, only when the tax country was `PK`, party type, CNIC/NTN, and STRN. A company or AOP NTN is shown as `1234567-8` when a check digit was stored. The check digit is not verified. Later edits to the customer do not change this block. Drafts do not show it.
+
+**ATL at posting** appears after the invoice is posted. It is the customer’s ATL status, check date and time, and reference at that moment. If the customer had no ATL record, the block says **Not recorded**. Invoices posted before this feature have no ATL block. Later edits to the customer do not change the copy. The copy does not change tax or the journal, and it does not decide whether the invoice can be posted. The status was entered manually and has not been verified by the application. The tax-identifier switch does not hide this block.
 
 The line table headings are **Description**, **Qty**, **Price**, **Discount**, **Tax code**, **Tax**, and **Total**. On a draft or rejected invoice you can change the discount and tax code, then choose **Save line tax and discount**. That save sends the code you chose. Under the table you see tax and total.
 
@@ -746,7 +752,7 @@ There is no search box. Up to 100 suppliers are listed. Click a row to edit it. 
 | Primary contact | Optional | 1 to 160 characters. | Example: `Sana Iqbal` | Stored as the primary contact. |
 | Add supplier / Save supplier | Button | — | — | Saves the supplier. **Cancel** appears while you are editing. A tax country other than `PK` clears party type, CNIC/NTN, and STRN. |
 
-While you are editing, **Products** lists item code, purchase price, lead time, and preferred. **Transactions** lists kind, number, date, status, and total. The balance line separates payables from unapplied advances. Advances are not part of bill aging. ATL status and FBR connections are not stored.
+While you are editing, **Products** lists item code, purchase price, lead time, and preferred. **Transactions** lists kind, number, date, status, and total. The balance line separates payables from unapplied advances. Advances are not part of bill aging. **Manual ATL** appears only when the company country and the tax country in the form are both `PK`. It works the same way as on a customer, with permission `suppliers.record_atl`. Saving the supplier form does not change the ATL record. Changing the tax country away from `PK` hides the block and keeps the stored ATL record. That save still clears party type, CNIC/NTN, and STRN. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
 
 ### Supplier bills
 
@@ -774,6 +780,8 @@ Menu: **Supplier bills**. Route: `/bills`. View permission: `bills.view`. Create
 | Create bill | Button | — | — | Saves a draft. It does not post a journal. The bill is rejected if the product has no purchase expense account. |
 
 The list columns are **Number**, **Supplier**, **Date**, **Due**, **Status**, and **Total**. Open a number to see the bill.
+
+**ATL at posting** appears after the bill is posted. It is the supplier’s ATL status, check date and time, and reference at that moment. If the supplier had no ATL record, the block says **Not recorded**. Bills posted before this feature have no ATL block. Later edits to the supplier do not change the copy. The copy does not change tax or the journal, and it does not decide whether the bill can be posted. The status was entered manually and has not been verified by the application.
 
 On a draft or rejected bill you can change the line discount and tax code, then press **Save line tax and discount**. You cannot change the supplier, quantity, or price on that page. **Submit**, **Approve**, and **Post** follow the usual path. **Post** needs an open period. When **Show supplier tax identifiers** is on, posting copies the supplier’s tax details onto the bill. **Reverse** needs a reason and is blocked while a posted payment allocation or a posted supplier return still applies. The screen does not show Reject or Void.
 
@@ -1034,7 +1042,7 @@ These items are not on the pages described above. Do not expect to complete them
 | --- | --- |
 | Inventory quantity and stock movements | Not calculated. A product type of Stock is only a label. Supplier bills and returns do not receive or issue quantity. That handling belongs to a later phase. |
 | Inventory value and cost of goods sold | Not calculated. Purchases post to the purchase expense account. Costing and valuation belong to a later phase, after the costing method is chosen. |
-| ATL tracking and FBR/IRIS connections | Not stored and not connected. |
+| FBR or IRIS connection | Not available, and out of scope. Staff type an ATL status. The application does not look it up and does not store FBR or IRIS login credentials. |
 | Edit, deactivate, or delete an account | You can add an account and read the list. |
 | Edit a branch, or enter its city | You can add a branch. The list shows code, name, and active status. |
 | Retire a tax code | You can add a code and set its sales and purchase tax accounts. There is no retire button. |
@@ -1068,3 +1076,5 @@ These items are not on the pages described above. Do not expect to complete them
 | Supplier advance | Money paid to a supplier that is not yet applied to a bill. It is held in an asset account. It is excluded from payables aging. |
 | Draft | A saved document that is not in the official reports. |
 | Branch | A location stored on sales and purchasing documents. Company Admin can see every branch. |
+| ATL | An active-taxpayer status a person types for a customer or supplier when the company country and that party’s tax country are both Pakistan. The application does not look it up or verify it. Posting an invoice or bill keeps a copy for history. That copy does not change tax or the journal. |
+| FBR / IRIS | Not connected. A connection is out of scope, and the application does not store a login for either one. |

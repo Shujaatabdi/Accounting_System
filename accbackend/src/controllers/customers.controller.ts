@@ -1,6 +1,6 @@
 import { actorFrom } from "../middleware/authenticate";
-import { createCustomer, customerBalance, customerHistory, getCustomer, listCustomers, saveOpeningDetails, updateCustomerProfile } from "../modules/customers/customers.service";
-import { customerBody, customerListQuery, historyQuery, openingDetailBody } from "../modules/customers/customers.schemas";
+import { createCustomer, customerBalance, customerHistory, getCustomer, listCustomers, recordCustomerAtl, saveOpeningDetails, updateCustomerProfile } from "../modules/customers/customers.service";
+import { atlBody, customerBody, customerListQuery, historyQuery, openingDetailBody } from "../modules/customers/customers.schemas";
 import { parseBody, parseQuery, wrap } from "../shared/http";
 import { toPage } from "../shared/http/pagination";
 
@@ -19,6 +19,10 @@ export const getCustomerController = wrap(async (req, res) => {
 
 export const updateCustomerController = wrap(async (req, res) => {
   res.json(await updateCustomerProfile(req.params.id, parseBody(customerBody, req.body), actorFrom(req)));
+});
+
+export const recordCustomerAtlController = wrap(async (req, res) => {
+  res.json(await recordCustomerAtl(req.params.id, parseBody(atlBody, req.body), actorFrom(req)));
 });
 
 export const customerBalanceController = wrap(async (req, res) => {

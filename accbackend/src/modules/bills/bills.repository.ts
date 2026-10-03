@@ -5,7 +5,8 @@ const header = `b.id, b.bill_number, b.supplier_id, s.display_name AS supplier_n
   b.tax_pricing_mode, b.discount_treatment, b.notes, b.taxable_total::text, b.tax_total::text, b.total::text,
   b.journal_entry_id, b.created_by, b.submitted_by, b.approved_by, b.posted_by,
   b.snapshot_tax_country_code, b.snapshot_tax_identifier, b.snapshot_party_type,
-  b.snapshot_cnic_ntn, b.snapshot_ntn_check_digit, b.snapshot_strn`;
+  b.snapshot_cnic_ntn, b.snapshot_ntn_check_digit, b.snapshot_strn,
+  b.snapshot_atl_captured, b.snapshot_atl_status, b.snapshot_atl_checked_at::text AS snapshot_atl_checked_at, b.snapshot_atl_reference`;
 
 export async function countBills(db: Sql, clause: string, params: unknown[]) {
   return db.query<{ count: string }>(
@@ -84,6 +85,19 @@ export async function setBillTaxSnapshot(db: Sql, id: string, values: unknown[])
   );
 }
 
+export async function setBillAtlSnapshot(db: Sql, id: string, status: string | null, checkedAt: string | null, reference: string | null) {
+  await db.query(
+    `UPDATE supplier_bills SET
+       snapshot_atl_captured = true,
+       snapshot_atl_status = $2,
+       snapshot_atl_checked_at = $3,
+       snapshot_atl_reference = $4,
+       updated_at = now()
+     WHERE id = $1 AND status <> 'posted'`,
+    [id, status, checkedAt, reference],
+  );
+}
+
 export async function lockSupplierTaxProfile(db: Sql, id: string) {
   return db.query<{
     tax_country_code: string | null;
@@ -92,8 +106,12 @@ export async function lockSupplierTaxProfile(db: Sql, id: string) {
     cnic_ntn: string | null;
     ntn_check_digit: string | null;
     strn: string | null;
+    atl_status: string | null;
+    atl_checked_at: string | null;
+    atl_reference: string | null;
   }>(
-    `SELECT tax_country_code, tax_identifier, party_type, cnic_ntn, ntn_check_digit, strn
+    `SELECT tax_country_code, tax_identifier, party_type, cnic_ntn, ntn_check_digit, strn,
+            atl_status, atl_checked_at::text, atl_reference
        FROM suppliers WHERE id = $1 FOR UPDATE`,
     [id],
   );

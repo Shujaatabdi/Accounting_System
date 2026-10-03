@@ -1,6 +1,6 @@
 import { actorFrom } from "../middleware/authenticate";
-import { createSupplier, getSupplier, listSuppliers, saveOpeningDetails, supplierBalance, supplierHistory, supplierProducts, updateSupplierProfile } from "../modules/suppliers/suppliers.service";
-import { historyQuery, openingDetailBody, supplierBody, supplierListQuery } from "../modules/suppliers/suppliers.schemas";
+import { createSupplier, getSupplier, listSuppliers, recordSupplierAtl, saveOpeningDetails, supplierBalance, supplierHistory, supplierProducts, updateSupplierProfile } from "../modules/suppliers/suppliers.service";
+import { atlBody, historyQuery, openingDetailBody, supplierBody, supplierListQuery } from "../modules/suppliers/suppliers.schemas";
 import { parseBody, parseQuery, wrap } from "../shared/http";
 import { toPage } from "../shared/http/pagination";
 
@@ -19,6 +19,10 @@ export const getSupplierController = wrap(async (req, res) => {
 
 export const updateSupplierController = wrap(async (req, res) => {
   res.json(await updateSupplierProfile(req.params.id, parseBody(supplierBody, req.body), actorFrom(req)));
+});
+
+export const recordSupplierAtlController = wrap(async (req, res) => {
+  res.json(await recordSupplierAtl(req.params.id, parseBody(atlBody, req.body), actorFrom(req)));
 });
 
 export const supplierBalanceController = wrap(async (req, res) => {

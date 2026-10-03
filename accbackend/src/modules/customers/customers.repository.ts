@@ -15,6 +15,11 @@ export type CustomerRow = {
   cnic_ntn: string | null;
   ntn_check_digit: string | null;
   strn: string | null;
+  atl_status: string | null;
+  atl_checked_at: string | null;
+  atl_reference: string | null;
+  atl_recorded_by_name: string | null;
+  atl_recorded_at: string | null;
   payment_terms_days: number;
   credit_limit: string | null;
   is_active: boolean;
@@ -23,6 +28,9 @@ export type CustomerRow = {
 
 const fields = `id, code, legal_name, display_name, contact_name, phone, email, tax_identifier,
   tax_country_code, party_type, cnic_ntn, ntn_check_digit, strn,
+  atl_status, atl_checked_at::text, atl_reference,
+  (SELECT display_name FROM users WHERE id = customers.atl_recorded_by) AS atl_recorded_by_name,
+  atl_recorded_at::text,
   payment_terms_days, credit_limit::text, is_active, notes`;
 
 export async function countCustomers(db: Sql, clause: string, params: unknown[]) {
@@ -59,6 +67,16 @@ export async function updateCustomer(db: Sql, id: string, values: unknown[]) {
        tax_identifier=$7, tax_country_code=$8, payment_terms_days=$9, credit_limit=$10, is_active=$11, notes=$12, updated_at=now()
      WHERE id = $13`,
     [...values, id],
+  );
+}
+
+export async function saveCustomerAtl(db: Sql, id: string, status: string | null, checkedAt: string | null, reference: string | null, recordedBy: string | null) {
+  await db.query(
+    `UPDATE customers SET
+       atl_status = $2, atl_checked_at = $3, atl_reference = $4, atl_recorded_by = $5,
+       atl_recorded_at = CASE WHEN $2::text IS NULL THEN NULL ELSE now() END, updated_at = now()
+     WHERE id = $1`,
+    [id, status, checkedAt, reference, recordedBy],
   );
 }
 

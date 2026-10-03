@@ -2,7 +2,7 @@
 
 One-company accounting software. Each customer gets a dedicated installation with its own PostgreSQL database, Express API, and Next.js frontend. It is not a multi-tenant SaaS product.
 
-Phases 1 through 3 are implemented: company settings, users and permissions, the chart of accounts, fiscal periods, journals, financial statements, customers and sales, and suppliers and purchasing. Warehouse quantities, inventory valuation, banking, costing, and manufacturing are not built yet. See `docs/ROADMAP.md`.
+Phases 1 through 3 are implemented: company settings, users and permissions, the chart of accounts, fiscal periods, journals, financial statements, customers and sales, and suppliers and purchasing. Phase 4 inventory quantities and banking are deferred. Phase 5 costing and manufacturing stay last and depend on Phase 4. Phase 6 manual ATL recording is implemented. Statutory reports and business-specific workflows are not. See `docs/ROADMAP.md`.
 
 ## Prerequisites
 

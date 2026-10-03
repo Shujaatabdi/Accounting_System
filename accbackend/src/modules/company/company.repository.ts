@@ -88,6 +88,10 @@ export async function insertContact(db: Sql, values: unknown[]) {
   );
 }
 
+export async function selectCompanyCountry(db: Sql) {
+  return db.query<{ country_code: string }>("SELECT country_code FROM company WHERE id = 1");
+}
+
 export async function selectTimezone(db: Sql) {
   return db.query<{ timezone: string }>("SELECT timezone FROM company WHERE id = 1");
 }

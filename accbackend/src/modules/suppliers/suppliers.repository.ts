@@ -15,6 +15,11 @@ export type SupplierRow = {
   cnic_ntn: string | null;
   ntn_check_digit: string | null;
   strn: string | null;
+  atl_status: string | null;
+  atl_checked_at: string | null;
+  atl_reference: string | null;
+  atl_recorded_by_name: string | null;
+  atl_recorded_at: string | null;
   payment_terms_days: number;
   is_active: boolean;
   notes: string | null;
@@ -22,6 +27,9 @@ export type SupplierRow = {
 
 const fields = `id, code, legal_name, display_name, contact_name, phone, email, tax_identifier,
   tax_country_code, party_type, cnic_ntn, ntn_check_digit, strn,
+  atl_status, atl_checked_at::text, atl_reference,
+  (SELECT display_name FROM users WHERE id = suppliers.atl_recorded_by) AS atl_recorded_by_name,
+  atl_recorded_at::text,
   payment_terms_days, is_active, notes`;
 
 export async function countSuppliers(db: Sql, clause: string, params: unknown[]) {
@@ -48,6 +56,16 @@ export async function insertSupplier(db: Sql, values: unknown[]) {
        party_type, cnic_ntn, ntn_check_digit, strn, payment_terms_days, is_active, notes
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
     values,
+  );
+}
+
+export async function saveSupplierAtl(db: Sql, id: string, status: string | null, checkedAt: string | null, reference: string | null, recordedBy: string | null) {
+  await db.query(
+    `UPDATE suppliers SET
+       atl_status = $2, atl_checked_at = $3, atl_reference = $4, atl_recorded_by = $5,
+       atl_recorded_at = CASE WHEN $2::text IS NULL THEN NULL ELSE now() END, updated_at = now()
+     WHERE id = $1`,
+    [id, status, checkedAt, reference, recordedBy],
   );
 }
 

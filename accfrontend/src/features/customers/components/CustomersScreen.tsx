@@ -1,7 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { AtlRecordPanel, type AtlRecord } from "@/components/AtlRecord";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api/client";
+import { can } from "@/lib/auth/session";
 
 type Address = {
   addressType: "billing" | "shipping" | "other";
@@ -34,6 +37,8 @@ type Customer = {
   cnicNtn: string | null;
   cnicNtnDisplay: string | null;
   strn: string | null;
+  atlApplicable: boolean;
+  atl: AtlRecord;
   addresses: Address[];
   contacts: Contact[];
 };
@@ -53,12 +58,15 @@ const emptyForm = {
 };
 
 export default function CustomersScreen() {
+  const auth = useAuth();
   const [rows, setRows] = useState<Customer[]>([]);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [atlApplicable, setAtlApplicable] = useState(false);
+  const [atl, setAtl] = useState<AtlRecord>(null);
   const pakistan = form.taxCountryCode.trim().toUpperCase() === "PK";
 
   async function load() {
@@ -71,6 +79,8 @@ export default function CustomersScreen() {
     setAddresses([]);
     setContacts([]);
     setForm(emptyForm);
+    setAtlApplicable(false);
+    setAtl(null);
   }
 
   async function edit(id: string) {
@@ -78,6 +88,8 @@ export default function CustomersScreen() {
     try {
       const customer = await api<Customer>(`/api/v1/customers/${id}`);
       setEditingId(id);
+      setAtlApplicable(customer.atlApplicable);
+      setAtl(customer.atl);
       setAddresses(customer.addresses);
       setContacts(customer.contacts);
       setForm({
@@ -129,6 +141,18 @@ export default function CustomersScreen() {
     }
   }
 
+  async function saveAtl(body: { status: "active" | "inactive" | null; checkedAt?: string; reference?: string }) {
+    if (!editingId) return;
+    setError("");
+    try {
+      const saved = await api<Customer>(`/api/v1/customers/${editingId}/atl`, { method: "PUT", body: JSON.stringify(body) });
+      setAtlApplicable(saved.atlApplicable);
+      setAtl(saved.atl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save the ATL record.");
+    }
+  }
+
   return (
     <div>
       <h1 className="page-title">Customers</h1>
@@ -163,6 +187,12 @@ export default function CustomersScreen() {
           {editingId ? <button className="btn" type="button" onClick={reset}>Cancel</button> : null}
         </div>
       </form>
+      {editingId && atlApplicable && pakistan ? (
+        <AtlRecordPanel record={atl} canRecord={can(auth.user, "customers.record_atl")} onSave={saveAtl} />
+      ) : null}
+      {editingId && atl && !(atlApplicable && pakistan) ? (
+        <p>The stored ATL record is kept. It is hidden because ATL applies only when the company country and this tax country are both Pakistan. Saving the customer does not delete it.</p>
+      ) : null}
       <div className="card">
         <table>
           <thead><tr><th>Code</th><th>Name</th><th>Tax country</th><th>CNIC/NTN</th><th>Terms</th><th>Credit limit</th><th>Status</th></tr></thead>

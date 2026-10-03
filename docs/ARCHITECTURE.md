@@ -161,11 +161,11 @@ Shared UI primitives live in `components/`. There is no Metronic code in this re
 
 ## What is implemented
 
-Phase 1, Phase 2, and Phase 3 are implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, balance sheet, customers, products, sales invoices, receipts, customer returns, receivables reports, suppliers, supplier bills, supplier payments, supplier returns, and payables reports.
+Phases 1, 2, and 3 are implemented: one company, users and roles, branches, fiscal periods, chart of accounts, draft-to-posted journals, reversals, audit, trial balance, general ledger, profit and loss, balance sheet, customers, products, sales invoices, receipts, customer returns, receivables reports, suppliers, supplier bills, supplier payments, supplier returns, and payables reports.
 
-Purchasing settings live in `modules/company` and are registered from `company.routes.ts`. Supplier bills, payments, and returns call `modules/ledger` to post or reverse. They do not copy the posting rules.
+Purchasing settings live in `modules/company` and are registered from `company.routes.ts`. Invoices, receipts, customer returns, supplier bills, payments, and supplier returns call `modules/ledger` to post or reverse. They do not copy the posting rules. Ordinary manual journals cannot post to the receivable or payable control account. Opening-balance journals can, only when the matching subledger detail equals the line.
 
-Not implemented: warehouse quantities, stock movements, inventory valuation, cost of goods sold, costing, and manufacturing. Stock receipt and return quantity handling is Phase 4. Inventory costing and valuation are Phase 5. The costing method is undecided. ATL tracking and FBR/IRIS connections are not implemented.
+Phase 4, basic inventory quantities and banking, is deferred and not built. Phase 5, costing and manufacturing, is not started. It depends on Phase 4 and stays last. FIFO versus weighted average is undecided. Phase 6 manual ATL recording is implemented on customers and suppliers. Posting an invoice or bill copies that record and does not use it in the journal. An FBR or IRIS connection and stored login credentials are out of scope. A reviewed accounting profile does not select tax rules. Statutory reports and business-specific workflows are not built; each needs an explicit specification first. See `docs/ROADMAP.md`.
 
 ## Deployment
 

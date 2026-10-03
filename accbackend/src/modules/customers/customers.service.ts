@@ -9,6 +9,7 @@ import {
   countCustomers,
   countHistory,
   insertCustomer,
+  saveCustomerAtl,
   savePakistanTaxProfile,
   lockOpeningLine,
   replaceAddresses,
@@ -24,6 +25,8 @@ import {
   updateCustomer,
   type CustomerRow,
 } from "./customers.repository";
+import { selectCompanyCountry } from "../company/company.repository";
+import { atlRecordingApplies, parseAtlInput, type AtlInput } from "../../shared/atl";
 import { displayCnicNtn, parseCnicNtn, type PartyType } from "./customer-tax";
 import type { CustomerInput, OpeningDetailInput } from "./customers.types";
 
@@ -42,7 +45,8 @@ export async function listCustomers(page: Page, filters: { search?: string; acti
   const total = Number(one((await countCustomers({ query }, clause, params)).rows).count);
   params.push(page.pageSize, page.offset);
   const rows = await selectCustomers({ query }, clause, params);
-  return pageResult(rows.rows.map(mapCustomer), total, page);
+  const country = await installationCountry({ query });
+  return pageResult(rows.rows.map((row) => mapCustomer(row, country)), total, page);
 }
 
 export async function getCustomer(id: string) {
@@ -72,6 +76,20 @@ export async function updateCustomerProfile(id: string, input: CustomerInput, me
     await replaceContacts(client, id, input.contacts);
     const saved = await load(client, id);
     await audit(client, meta, "customers.update", id, `Updated customer ${saved.code}`, before, saved);
+    return saved;
+  });
+}
+
+export async function recordCustomerAtl(id: string, input: AtlInput, meta: RequestMeta) {
+  return withTransaction(async (client) => {
+    const before = await load(client, id);
+    if (!atlRecordingApplies(await installationCountry(client), before.taxCountryCode)) {
+      throw new AppError(409, "ATL_CONTEXT", "Manual ATL recording is available only when the company country and this customer's tax country are both Pakistan. The stored ATL record is left unchanged. This does not select a tax rate.");
+    }
+    const parsed = parseAtlInput(input);
+    await saveCustomerAtl(client, id, parsed.status, parsed.checkedAt, parsed.reference, parsed.status ? meta.actor.id : null);
+    const saved = await load(client, id);
+    await audit(client, meta, parsed.status ? "customers.record_atl" : "customers.clear_atl", id, parsed.status ? `Recorded manual ATL for ${saved.code}` : `Cleared manual ATL for ${saved.code}`, before.atl, saved.atl);
     return saved;
   });
 }
@@ -131,10 +149,11 @@ export async function saveOpeningDetails(input: OpeningDetailInput, meta: Reques
 
 async function load(db: Sql, id: string) {
   const row = one((await selectCustomer(db, id)).rows, "Customer not found.");
+  const country = await installationCountry(db);
   const addresses = await selectAddresses(db, id);
   const contacts = await selectContacts(db, id);
   return {
-    ...mapCustomer(row),
+    ...mapCustomer(row, country),
     addresses: addresses.rows.map((address) => ({
       id: address.id,
       addressType: address.address_type,
@@ -157,7 +176,7 @@ async function load(db: Sql, id: string) {
   };
 }
 
-function mapCustomer(row: CustomerRow) {
+function mapCustomer(row: CustomerRow, companyCountry: string) {
   return {
     id: row.id,
     code: row.code,
@@ -173,6 +192,8 @@ function mapCustomer(row: CustomerRow) {
     ntnCheckDigit: row.ntn_check_digit,
     cnicNtnDisplay: displayCnicNtn(row.party_type, row.cnic_ntn, row.ntn_check_digit),
     strn: row.strn,
+    atlApplicable: atlRecordingApplies(companyCountry, row.tax_country_code),
+    atl: mapAtl(row),
     paymentTermsDays: row.payment_terms_days,
     creditLimit: row.credit_limit,
     isActive: row.is_active,
@@ -195,6 +216,23 @@ function values(input: CustomerInput) {
     input.isActive,
     input.notes ?? null,
   ];
+}
+
+function mapAtl(row: { atl_status: string | null; atl_checked_at: string | null; atl_reference: string | null; atl_recorded_by_name: string | null; atl_recorded_at: string | null }) {
+  if (row.atl_status !== "active" && row.atl_status !== "inactive") return null;
+  return {
+    status: row.atl_status,
+    checkedAt: row.atl_checked_at,
+    reference: row.atl_reference,
+    recordedByName: row.atl_recorded_by_name,
+    recordedAt: row.atl_recorded_at,
+    manuallyEntered: true,
+    verifiedByApplication: false,
+  };
+}
+
+async function installationCountry(db: Sql) {
+  return one((await selectCompanyCountry(db)).rows, "Company is not configured.").country_code;
 }
 
 function taxCountry(input: CustomerInput) {

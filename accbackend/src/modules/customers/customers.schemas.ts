@@ -43,6 +43,12 @@ export const customerBody = z.object({
   contacts: z.array(contact).max(10),
 });
 
+export const atlBody = z.object({
+  status: z.enum(["active", "inactive"]).nullable(),
+  checkedAt: z.string().trim().max(40).nullish(),
+  reference: z.string().trim().max(160).nullish(),
+});
+
 export const customerListQuery = pageQuery.extend({
   search: z.string().optional(),
   active: z.enum(["true", "false"]).optional(),

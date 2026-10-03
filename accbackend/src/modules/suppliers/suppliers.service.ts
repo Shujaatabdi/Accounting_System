@@ -5,6 +5,8 @@ import { AppError, one } from "../../shared/errors";
 import { decimal, money } from "../../shared/money";
 import { pageResult, type Page } from "../../shared/http/pagination";
 import type { RequestMeta } from "../auth/auth.types";
+import { selectCompanyCountry } from "../company/company.repository";
+import { atlRecordingApplies, parseAtlInput, type AtlInput } from "../../shared/atl";
 import { displayCnicNtn, parseCnicNtn, type PartyType } from "../customers/customer-tax";
 import { selectSuppliersForProduct } from "../products/products.repository";
 import {
@@ -20,6 +22,7 @@ import {
   selectContacts,
   selectExposure,
   selectHistory,
+  saveSupplierAtl,
   selectSupplier,
   selectSuppliers,
   updateSupplier,
@@ -42,7 +45,8 @@ export async function listSuppliers(page: Page, filters: { search?: string; acti
   const total = Number(one((await countSuppliers({ query }, clause, params)).rows).count);
   params.push(page.pageSize, page.offset);
   const rows = await selectSuppliers({ query }, clause, params);
-  return pageResult(rows.rows.map(mapSupplier), total, page);
+  const country = await installationCountry({ query });
+  return pageResult(rows.rows.map((row) => mapSupplier(row, country)), total, page);
 }
 
 export async function getSupplier(id: string) {
@@ -70,6 +74,20 @@ export async function updateSupplierProfile(id: string, input: SupplierInput, me
     await replaceContacts(client, id, input.contacts);
     const saved = await load(client, id);
     await audit(client, meta, "suppliers.update", id, `Updated supplier ${saved.code}`, before, saved);
+    return saved;
+  });
+}
+
+export async function recordSupplierAtl(id: string, input: AtlInput, meta: RequestMeta) {
+  return withTransaction(async (client) => {
+    const before = await load(client, id);
+    if (!atlRecordingApplies(await installationCountry(client), before.taxCountryCode)) {
+      throw new AppError(409, "ATL_CONTEXT", "Manual ATL recording is available only when the company country and this supplier's tax country are both Pakistan. The stored ATL record is left unchanged. This does not select a tax rate.");
+    }
+    const parsed = parseAtlInput(input);
+    await saveSupplierAtl(client, id, parsed.status, parsed.checkedAt, parsed.reference, parsed.status ? meta.actor.id : null);
+    const saved = await load(client, id);
+    await audit(client, meta, parsed.status ? "suppliers.record_atl" : "suppliers.clear_atl", id, parsed.status ? `Recorded manual ATL for ${saved.code}` : `Cleared manual ATL for ${saved.code}`, before.atl, saved.atl);
     return saved;
   });
 }
@@ -140,10 +158,11 @@ export async function saveOpeningDetails(input: OpeningDetailInput, meta: Reques
 
 async function load(db: Sql, id: string) {
   const row = one((await selectSupplier(db, id)).rows, "Supplier not found.");
+  const country = await installationCountry(db);
   const addresses = await selectAddresses(db, id);
   const contacts = await selectContacts(db, id);
   return {
-    ...mapSupplier(row),
+    ...mapSupplier(row, country),
     addresses: addresses.rows.map((address) => ({
       id: address.id,
       addressType: address.address_type,
@@ -166,7 +185,7 @@ async function load(db: Sql, id: string) {
   };
 }
 
-function mapSupplier(row: SupplierRow) {
+function mapSupplier(row: SupplierRow, companyCountry: string) {
   return {
     id: row.id,
     code: row.code,
@@ -182,10 +201,29 @@ function mapSupplier(row: SupplierRow) {
     ntnCheckDigit: row.ntn_check_digit,
     cnicNtnDisplay: displayCnicNtn(row.party_type, row.cnic_ntn, row.ntn_check_digit),
     strn: row.strn,
+    atlApplicable: atlRecordingApplies(companyCountry, row.tax_country_code),
+    atl: mapAtl(row),
     paymentTermsDays: row.payment_terms_days,
     isActive: row.is_active,
     notes: row.notes,
   };
+}
+
+function mapAtl(row: { atl_status: string | null; atl_checked_at: string | null; atl_reference: string | null; atl_recorded_by_name: string | null; atl_recorded_at: string | null }) {
+  if (row.atl_status !== "active" && row.atl_status !== "inactive") return null;
+  return {
+    status: row.atl_status,
+    checkedAt: row.atl_checked_at,
+    reference: row.atl_reference,
+    recordedByName: row.atl_recorded_by_name,
+    recordedAt: row.atl_recorded_at,
+    manuallyEntered: true,
+    verifiedByApplication: false,
+  };
+}
+
+async function installationCountry(db: Sql) {
+  return one((await selectCompanyCountry(db)).rows, "Company is not configured.").country_code;
 }
 
 function values(input: SupplierInput) {

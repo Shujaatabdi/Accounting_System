@@ -11,12 +11,12 @@ This repository is the local Accounting System at the configured GitHub remote `
 - One company currency in the initial version. Store the currency name and symbol on the company profile. No foreign-currency accounting.
 - Permissions are configurable by action and, where relevant, by branch. The frontend may hide actions, but the API enforces authorization.
 - Keep an audit history for important actions, written in the same database transaction as the change.
-- Do not implement sales, purchasing, returns, inventory quantities, banking, costing, or manufacturing until that phase is explicitly requested. Customer and supplier returns are planned, with configurable product-level account adjustments. Basic inventory quantities come before costing. Costing and manufacturing/BOM are later add-ons. FIFO versus weighted average is undecided; ask before implementing costing.
+- Phases 1 through 3 are implemented, including customers, sales, suppliers, and purchasing. Do not implement Phase 4 inventory quantities or banking; that work is deferred. Phase 5 costing and manufacturing depend on Phase 4 and stay last. FIFO versus weighted average is undecided; ask before implementing costing. Do not implement a Phase 6 feature until it is explicitly requested.
 - Do not vendor Metronic. It is commercial and not licensed in this repo. The frontend is our own Next.js App Router UI.
 - Keep `docs` aligned with the code. Do not describe a feature as implemented unless it exists here.
 - Schema changes go in a new SQL migration. Do not edit an applied migration.
 - Do not commit secrets. Windows setup is in the root `README.md`.
-- Phase 1 is the foundation and is implemented. Stop after a phase and wait for review before the next one.
+- Phases 1 through 3 are complete. Stop after a phase and wait for review before the next one. A country code, time zone, tax identifier, or business type must not select tax rules. A reviewed accounting profile is an acknowledgement, not a statutory rule set. Statutory reports need an explicit specification and a confirmed filing calendar and currency. Business-specific workflows need the business type and the behavior named first. Manual ATL recording is implemented for customers and suppliers and is copied onto an invoice or bill at posting. Do not add an FBR or IRIS connection or store login credentials.
 
 ## Required backend architecture
 
@@ -51,7 +51,7 @@ Layer rules:
 
 `app.ts` mounts the versioned router from `routes/index.ts`. `server.ts` listens and shuts the pool down.
 
-Journal posting stays atomic. Application checks and database triggers are both required. Keep balancing, fiscal-period checks and locking, audit-in-transaction, posted immutability, and reversal behavior. Future invoices, bills, and returns must call `modules/ledger` to post or reverse a journal. They must not copy those rules.
+Journal posting stays atomic. Application checks and database triggers are both required. Keep balancing, fiscal-period checks and locking, audit-in-transaction, posted immutability, and reversal behavior. Invoices, bills, returns, and later documents must call `modules/ledger` to post or reverse a journal. They must not copy those rules.
 
 Company configuration that already exists (numbering, tax codes, and the accounting profile) stays on the company route and in `modules/company`. The audit list stays on the users route. The dashboard stays on the reports route. Do not drop these endpoints.
 
@@ -71,6 +71,6 @@ Frontend code is TypeScript and the Next.js App Router under `accfrontend`.
 
 ## Current and planned scope
 
-Implemented now: company profile, users, roles, permissions, branches, chart of accounts, fiscal periods, manual journals, approvals, posting, reversals, audit, trial balance, profit and loss, balance sheet, general ledger, customers, products and services, sales invoices, receipts, allocations, customer returns, receivables aging, customer statements, the sales report, suppliers, supplier bills, supplier payments and allocations, supplier returns, payables aging, supplier statements, and the purchases and supplier-return reports.
+Implemented now: company profile, users, roles, permissions, branches, chart of accounts, fiscal periods, manual journals, approvals, posting, reversals, audit, trial balance, profit and loss, balance sheet, general ledger, customers, products and services, sales invoices, receipts, allocations, customer returns, receivables aging, customer statements, the sales report, suppliers, supplier bills, supplier payments and allocations, supplier returns, payables aging, supplier statements, the purchases and supplier-return reports, and manual ATL records for customers and suppliers, including the posting snapshot on invoices and bills.
 
-Not implemented: warehouse quantities, stock movements, inventory valuation, cost of goods sold, costing, and manufacturing. Stock receipt and return quantities are Phase 4. Inventory costing and valuation are Phase 5. ATL tracking and FBR/IRIS connections are Phase 6 or a separately approved change.
+Deferred in Phase 4: warehouse quantities, stock movements, and banking. Not started, and last, in Phase 5: inventory valuation, cost of goods sold, costing, and manufacturing. Phase 5 depends on Phase 4. An FBR or IRIS connection and stored login credentials are out of scope. Statutory reports and business-specific workflows are not built.

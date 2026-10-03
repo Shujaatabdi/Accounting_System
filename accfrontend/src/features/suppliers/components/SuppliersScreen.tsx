@@ -1,7 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { AtlRecordPanel, type AtlRecord } from "@/components/AtlRecord";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api/client";
+import { can } from "@/lib/auth/session";
 
 type Address = { addressType: "billing"; line1: string; countryCode: string; isPrimary: boolean };
 type Contact = { name: string; isPrimary: boolean };
@@ -18,6 +21,8 @@ type Supplier = {
   cnicNtn: string | null;
   cnicNtnDisplay: string | null;
   strn: string | null;
+  atlApplicable: boolean;
+  atl: AtlRecord;
   addresses: Address[];
   contacts: Contact[];
 };
@@ -41,10 +46,13 @@ const emptyForm = {
 };
 
 export default function SuppliersScreen() {
+  const auth = useAuth();
   const [rows, setRows] = useState<Supplier[]>([]);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [atlApplicable, setAtlApplicable] = useState(false);
+  const [atl, setAtl] = useState<AtlRecord>(null);
   const [balance, setBalance] = useState("");
   const [history, setHistory] = useState<History[]>([]);
   const [products, setProducts] = useState<ProductLink[]>([]);
@@ -61,6 +69,8 @@ export default function SuppliersScreen() {
     setBalance("");
     setHistory([]);
     setProducts([]);
+    setAtlApplicable(false);
+    setAtl(null);
   }
 
   async function edit(id: string) {
@@ -73,6 +83,8 @@ export default function SuppliersScreen() {
         api<{ data: ProductLink[] }>(`/api/v1/suppliers/${id}/products`),
       ]);
       setEditingId(id);
+      setAtlApplicable(supplier.atlApplicable);
+      setAtl(supplier.atl);
       setBalance(`Payables ${bal.payables}. Unapplied advances ${bal.advances}. Advances are not part of bill aging.`);
       setHistory(hist.data);
       setProducts(linked.data);
@@ -127,10 +139,22 @@ export default function SuppliersScreen() {
     }
   }
 
+  async function saveAtl(body: { status: "active" | "inactive" | null; checkedAt?: string; reference?: string }) {
+    if (!editingId) return;
+    setError("");
+    try {
+      const saved = await api<Supplier>(`/api/v1/suppliers/${editingId}/atl`, { method: "PUT", body: JSON.stringify(body) });
+      setAtlApplicable(saved.atlApplicable);
+      setAtl(saved.atl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save the ATL record.");
+    }
+  }
+
   return (
     <div>
       <h1 className="page-title">Suppliers</h1>
-      <p className="lede">Supplier balances are subledger detail. They do not create a second payable posting. A tax country does not choose a tax rate. ATL and FBR connections are not stored.</p>
+      <p className="lede">Supplier balances are subledger detail. They do not create a second payable posting. A tax country does not choose a tax rate.</p>
       {error ? <div className="banner error">{error}</div> : null}
       <form className="card grid" onSubmit={onSubmit}>
         <label className="field"><span>Code</span><input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} required /></label>
@@ -167,6 +191,12 @@ export default function SuppliersScreen() {
           {editingId ? <button className="btn" type="button" onClick={reset}>Cancel</button> : null}
         </div>
       </form>
+      {editingId && atlApplicable && pakistan ? (
+        <AtlRecordPanel record={atl} canRecord={can(auth.user, "suppliers.record_atl")} onSave={saveAtl} />
+      ) : null}
+      {editingId && atl && !(atlApplicable && pakistan) ? (
+        <p>The stored ATL record is kept. It is hidden because ATL applies only when the company country and this tax country are both Pakistan. Saving the supplier does not delete it.</p>
+      ) : null}
       {editingId ? (
         <div className="card">
           <p>{balance}</p>

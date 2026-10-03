@@ -19,7 +19,7 @@ The frontend needs `NEXT_PUBLIC_API_URL` at build time.
 
 1. Back up the database.
 2. Deploy the new API build.
-3. From `accbackend`, run `npm run migrate`. Migrations run in a transaction and are recorded in `schema_migrations`. Phase 3 is the additive file `004_suppliers_purchasing.sql`. Do not edit an already applied migration.
+3. From `accbackend`, run `npm run migrate`. Migrations run in a transaction and are recorded in `schema_migrations`. Later additive files include `005_role_code_format.sql` and `006_manual_atl.sql`. `006_manual_atl.sql` adds the ATL columns and grants `customers.record_atl` and `suppliers.record_atl` to Company Admin. Do not edit an already applied migration.
 4. Run `npm run seed` only to add newly shipped permissions, document sequences, or to fill an empty database. It does not reset posted journals or an existing chart. It links the payable control to existing account `2100` only when that account exists and the setting is still empty. It does not create a supplier-advance account.
 5. Deploy the frontend.
 

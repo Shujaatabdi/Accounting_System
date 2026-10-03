@@ -5,6 +5,7 @@ import {
   customerHistoryController,
   getCustomerController,
   listCustomersController,
+  recordCustomerAtlController,
   saveOpeningDetailsController,
   updateCustomerController,
 } from "../controllers/customers.controller";
@@ -15,6 +16,7 @@ customersRouter.get("/customers", requirePermission("customers.view"), listCusto
 customersRouter.post("/customers", requirePermission("customers.create"), createCustomerController);
 customersRouter.put("/customers/opening-details", requirePermission("customers.update"), saveOpeningDetailsController);
 customersRouter.get("/customers/:id", requirePermission("customers.view"), getCustomerController);
+customersRouter.put("/customers/:id/atl", requirePermission("customers.record_atl"), recordCustomerAtlController);
 customersRouter.put("/customers/:id", requirePermission("customers.update"), updateCustomerController);
 customersRouter.get("/customers/:id/balance", requirePermission("customers.view"), customerBalanceController);
 customersRouter.get("/customers/:id/history", requirePermission("customers.view"), customerHistoryController);

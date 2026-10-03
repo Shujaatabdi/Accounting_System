@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AtlSnapshotCard, type AtlSnapshot } from "@/components/AtlRecord";
 import { api } from "@/lib/api/client";
 
 type Line = {
@@ -31,6 +32,7 @@ type Bill = {
   taxTotal: string;
   lines: Line[];
   supplierTaxIdentifiers: TaxDetails;
+  atlSnapshot: AtlSnapshot;
 };
 type TaxCode = { id: string; code: string; name: string; isActive: boolean };
 const partyLabel: Record<string, string> = { individual: "Individual", company: "Company", aop: "AOP" };
@@ -112,6 +114,7 @@ export default function BillDetailScreen({ id }: { id: string }) {
           {details.strn ? <p>STRN {details.strn}</p> : null}
         </div>
       ) : null}
+      <AtlSnapshotCard title="ATL at posting" snapshot={bill.atlSnapshot} />
       <div className="card">
         <table>
           <thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Discount</th><th>Tax code</th><th>Tax</th><th>Total</th></tr></thead>

@@ -6,6 +6,7 @@ import {
   saveSupplierOpeningDetailsController,
   supplierBalanceController,
   supplierHistoryController,
+  recordSupplierAtlController,
   supplierProductsController,
   updateSupplierController,
 } from "../controllers/suppliers.controller";
@@ -16,6 +17,7 @@ suppliersRouter.get("/suppliers", requirePermission("suppliers.view"), listSuppl
 suppliersRouter.post("/suppliers", requirePermission("suppliers.create"), createSupplierController);
 suppliersRouter.put("/suppliers/opening-details", requirePermission("suppliers.update"), saveSupplierOpeningDetailsController);
 suppliersRouter.get("/suppliers/:id", requirePermission("suppliers.view"), getSupplierController);
+suppliersRouter.put("/suppliers/:id/atl", requirePermission("suppliers.record_atl"), recordSupplierAtlController);
 suppliersRouter.put("/suppliers/:id", requirePermission("suppliers.update"), updateSupplierController);
 suppliersRouter.get("/suppliers/:id/balance", requirePermission("suppliers.view"), supplierBalanceController);
 suppliersRouter.get("/suppliers/:id/history", requirePermission("suppliers.view"), supplierHistoryController);
