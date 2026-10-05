@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { AtlRecordPanel, type AtlRecord } from "@/components/AtlRecord";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api/client";
@@ -50,8 +50,10 @@ export default function SuppliersScreen() {
   const [rows, setRows] = useState<Supplier[]>([]);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState(emptyForm);
   const [atlApplicable, setAtlApplicable] = useState(false);
+  const [atlRecordingAvailable, setAtlRecordingAvailable] = useState(false);
   const [atl, setAtl] = useState<AtlRecord>(null);
   const [balance, setBalance] = useState("");
   const [history, setHistory] = useState<History[]>([]);
@@ -59,7 +61,9 @@ export default function SuppliersScreen() {
   const pakistan = form.taxCountryCode.trim().toUpperCase() === "PK";
 
   async function load() {
-    setRows((await api<{ data: Supplier[] }>("/api/v1/suppliers?pageSize=100")).data);
+    const result = await api<{ data: Supplier[]; atlRecordingAvailable: boolean }>("/api/v1/suppliers?pageSize=100");
+    setRows(result.data);
+    setAtlRecordingAvailable(result.atlRecordingAvailable);
   }
   useEffect(() => { load().catch((caught: Error) => setError(caught.message)); }, []);
 
@@ -103,6 +107,7 @@ export default function SuppliersScreen() {
         addressCountry: supplier.addresses[0]?.countryCode ?? "",
         contactName: supplier.contacts[0]?.name ?? "",
       });
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not open the supplier.");
     }
@@ -156,7 +161,8 @@ export default function SuppliersScreen() {
       <h1 className="page-title">Suppliers</h1>
       <p className="lede">Supplier balances are subledger detail. They do not create a second payable posting. A tax country does not choose a tax rate.</p>
       {error ? <div className="banner error">{error}</div> : null}
-      <form className="card grid" onSubmit={onSubmit}>
+      <form className="card grid" onSubmit={onSubmit} ref={formRef}>
+        <h2>{editingId ? "Edit supplier" : "New supplier"}</h2>
         <label className="field"><span>Code</span><input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} required /></label>
         <label className="field"><span>Legal name</span><input value={form.legalName} onChange={(event) => setForm({ ...form, legalName: event.target.value })} required /></label>
         <label className="field"><span>Display name</span><input value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} required /></label>
@@ -191,8 +197,13 @@ export default function SuppliersScreen() {
           {editingId ? <button className="btn" type="button" onClick={reset}>Cancel</button> : null}
         </div>
       </form>
-      {editingId && atlApplicable && pakistan ? (
-        <AtlRecordPanel record={atl} canRecord={can(auth.user, "suppliers.record_atl")} onSave={saveAtl} />
+      {atlRecordingAvailable && pakistan ? (
+        <AtlRecordPanel
+          record={editingId ? atl : null}
+          canRecord={Boolean(editingId && atlApplicable && can(auth.user, "suppliers.record_atl"))}
+          unavailableReason={!editingId ? "Save the supplier first. Add supplier does not store ATL." : !atlApplicable ? "Save the supplier with tax country PK before recording ATL. The supplier form does not store ATL." : undefined}
+          onSave={saveAtl}
+        />
       ) : null}
       {editingId && atl && !(atlApplicable && pakistan) ? (
         <p>The stored ATL record is kept. It is hidden because ATL applies only when the company country and this tax country are both Pakistan. Saving the supplier does not delete it.</p>
@@ -214,11 +225,12 @@ export default function SuppliersScreen() {
       ) : null}
       <div className="card">
         <table>
-          <thead><tr><th>Code</th><th>Name</th><th>Tax country</th><th>CNIC/NTN</th><th>Terms</th><th>Status</th></tr></thead>
+          <thead><tr><th>Code</th><th>Name</th><th>Tax country</th><th>CNIC/NTN</th><th>Terms</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} onClick={() => edit(row.id)}>
+              <tr key={row.id}>
                 <td>{row.code}</td><td>{row.displayName}</td><td>{row.taxCountryCode ?? ""}</td><td>{row.cnicNtnDisplay ?? ""}</td><td>{row.paymentTermsDays}</td><td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td><button className="btn quiet" type="button" onClick={() => edit(row.id)}>Edit</button></td>
               </tr>
             ))}
           </tbody>

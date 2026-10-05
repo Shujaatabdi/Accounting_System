@@ -75,6 +75,18 @@ export async function lockCurrentProfile(db: Sql, today: string) {
   );
 }
 
+export async function lockUpcomingProfile(db: Sql, today: string) {
+  return db.query(
+    `SELECT id, country_code, name, compliance_status, notes, effective_from, effective_to, is_active
+       FROM accounting_profiles
+      WHERE is_active AND effective_from > $1::date AND (effective_to IS NULL OR effective_to >= effective_from)
+      ORDER BY effective_from ASC
+      LIMIT 1
+      FOR UPDATE`,
+    [today],
+  );
+}
+
 export async function updateProfile(db: Sql, id: string, values: unknown[]) {
   return db.query(
     `UPDATE accounting_profiles

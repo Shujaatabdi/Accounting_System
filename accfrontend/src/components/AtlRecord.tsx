@@ -40,10 +40,12 @@ export function AtlRecordPanel({
   record,
   canRecord,
   onSave,
+  unavailableReason,
 }: {
   record: AtlRecord;
   canRecord: boolean;
   onSave: (body: { status: "active" | "inactive" | null; checkedAt?: string; reference?: string }) => Promise<void>;
+  unavailableReason?: string;
 }) {
   const [status, setStatus] = useState<"active" | "inactive">(record?.status ?? "active");
   const [checkedAt, setCheckedAt] = useState(toLocalInput(record?.checkedAt ?? null));
@@ -104,7 +106,7 @@ export function AtlRecordPanel({
           </div>
         </form>
       ) : (
-        <p>You can view this record. Saving it needs the ATL permission.</p>
+        <p>{unavailableReason ?? "You can view this record. Saving it needs the ATL permission."}</p>
       )}
     </div>
   );

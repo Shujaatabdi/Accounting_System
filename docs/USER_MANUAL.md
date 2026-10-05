@@ -196,7 +196,7 @@ Menu: **Country profile**. Route: `/settings/accounting-profile`. View permissio
 
 **Who uses it.** A company administrator.
 
-The page title is **Country profile**. The introduction states that country tax and statutory rules stay unverified until a reviewer marks them reviewed for a named country.
+The page title is **Country profile**. The introduction states that country tax and statutory rules stay unverified until a reviewer marks them reviewed for a named country. The form shows the profile that covers the company date. If none does, it shows the next active profile and the company date. If the profile cannot be loaded, the page shows the error and any stored history instead of staying on Loading.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -508,7 +508,7 @@ Menu: **Customers**. Route: `/customers`. View permission: `customers.view`. Cre
 
 **Who uses it.** Sales staff who can create customers, and anyone who needs the customer list.
 
-The page says customer balances are subledger detail and do not create a second receivable posting, and that a tax country does not choose a tax rate. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. Click a row to edit that customer. Saving an edit keeps addresses and contacts that were already stored. The form does not ask for a phone, email, address, or notes. A new customer is saved as active. Saving the customer form does not change the ATL record. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
+The page says customer balances are subledger detail and do not create a second receivable posting, and that a tax country does not choose a tax rate. There is no balance button, no history button, and no search box on this screen. Up to 100 customers are listed. **Edit** on a row loads that customer into the form and the form heading becomes **Edit customer**. **Cancel** returns the form to **New customer**. Saving an edit keeps addresses and contacts that were already stored. The form does not ask for a phone, email, address, or notes. A new customer is saved as active. Saving the customer form does not change the ATL record. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -524,9 +524,9 @@ The page says customer balances are subledger detail and do not create a second 
 | STRN | Optional when tax country is `PK` | Up to 60 characters. No format is required. | Example: `12-34-5678-901-23` | Stored as text. Hidden unless the tax country is `PK`. |
 | Add customer / Save customer | Button | — | — | Saves the customer. It does not post a balance and it does not change the ATL record. **Cancel** appears while you are editing. |
 
-While a saved customer is open, **Manual ATL** appears only when the company country and the tax country in the form are both `PK`. It is separate from **Save customer**. The page says the status was entered manually and has not been verified by the application. Choose **Active** or **Inactive**, enter the check date and time and a reference of up to 160 characters, then press **Save ATL**. **Clear ATL** removes the stored status. A customer with no record says **Not recorded**. The block also shows who entered it and when. Saving needs `customers.record_atl`. Company Admin can save it. Someone with only `customers.view` can read it. Changing the tax country away from `PK` hides the block and keeps the stored record. Open the customer again after it is first saved before recording ATL. A new, unsaved customer has no ATL block.
+**Manual ATL** appears when the company country is `PK` and the tax country in the form is `PK`, including on a new customer. It is separate from **Save customer**. The page says the status was entered manually and has not been verified by the application. On a saved customer whose stored tax country is `PK`, choose **Active** or **Inactive**, enter the check date and time and a reference of up to 160 characters, then press **Save ATL**. **Clear ATL** removes the stored status. A customer with no record says **Not recorded**. The block also shows who entered it and when. Saving needs `customers.record_atl`. Company Admin can save it. Someone with only `customers.view` can read it. A new customer, or a customer whose stored tax country is not yet `PK`, shows the block and says to save the customer first. Changing the tax country away from `PK` hides the block and keeps the stored record.
 
-Table columns: **Code**, **Name**, **Tax country**, **CNIC/NTN** (the printed form when a check digit is stored), **Terms**, **Credit limit**, and **Status**. Click a row to edit it.
+Table columns: **Code**, **Name**, **Tax country**, **CNIC/NTN** (the printed form when a check digit is stored), **Terms**, **Credit limit**, **Status**, and **Edit**.
 
 ### Products
 
@@ -733,7 +733,7 @@ Menu: **Suppliers**. Route: `/suppliers`. View permission: `suppliers.view`. Cre
 
 **Who uses it.** Purchasing staff.
 
-There is no search box. Up to 100 suppliers are listed. Click a row to edit it. The page then shows payables, unapplied advances, linked products, and recent bills, payments, and returns.
+There is no search box. Up to 100 suppliers are listed. **Edit** on a row loads that supplier into the form and the form heading becomes **Edit supplier**. **Cancel** returns the form to **New supplier**. The page then shows payables, unapplied advances, linked products, and recent bills, payments, and returns.
 
 | Label | Required | Allowed values | Example | Effect |
 | --- | --- | --- | --- | --- |
@@ -752,7 +752,7 @@ There is no search box. Up to 100 suppliers are listed. Click a row to edit it. 
 | Primary contact | Optional | 1 to 160 characters. | Example: `Sana Iqbal` | Stored as the primary contact. |
 | Add supplier / Save supplier | Button | — | — | Saves the supplier. **Cancel** appears while you are editing. A tax country other than `PK` clears party type, CNIC/NTN, and STRN. |
 
-While you are editing, **Products** lists item code, purchase price, lead time, and preferred. **Transactions** lists kind, number, date, status, and total. The balance line separates payables from unapplied advances. Advances are not part of bill aging. **Manual ATL** appears only when the company country and the tax country in the form are both `PK`. It works the same way as on a customer, with permission `suppliers.record_atl`. Saving the supplier form does not change the ATL record. Changing the tax country away from `PK` hides the block and keeps the stored ATL record. That save still clears party type, CNIC/NTN, and STRN. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
+While you are editing, **Products** lists item code, purchase price, lead time, and preferred. **Transactions** lists kind, number, date, status, and total. The balance line separates payables from unapplied advances. Advances are not part of bill aging. **Manual ATL** appears when the company country is `PK` and the tax country in the form is `PK`, including on a new supplier. It works the same way as on a customer, with permission `suppliers.record_atl`. Saving the supplier form does not change the ATL record. Changing the tax country away from `PK` hides the block and keeps the stored ATL record. That save still clears party type, CNIC/NTN, and STRN. This application does not connect to FBR or IRIS, that connection is out of scope, and it does not store an FBR or IRIS login.
 
 ### Supplier bills
 

@@ -46,7 +46,7 @@ export async function listSuppliers(page: Page, filters: { search?: string; acti
   params.push(page.pageSize, page.offset);
   const rows = await selectSuppliers({ query }, clause, params);
   const country = await installationCountry({ query });
-  return pageResult(rows.rows.map((row) => mapSupplier(row, country)), total, page);
+  return { ...pageResult(rows.rows.map((row) => mapSupplier(row, country)), total, page), atlRecordingAvailable: atlRecordingApplies(country, "PK") };
 }
 
 export async function getSupplier(id: string) {

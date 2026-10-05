@@ -9,15 +9,22 @@ export default function AccountingProfilePage() {
   const [current, setCurrent] = useState<Profile | null>(null);
   const [history, setHistory] = useState<Profile[]>([]);
   const [note, setNote] = useState("");
+  const [companyDate, setCompanyDate] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    api<{ current: Profile | null; history: Profile[]; complianceNote: string }>("/api/v1/accounting-profile").then((result) => {
+    api<{ current: Profile | null; history: Profile[]; complianceNote: string; companyDate: string }>("/api/v1/accounting-profile").then((result) => {
       setCurrent(result.current);
       setHistory(result.history);
       setNote(result.complianceNote);
-    }).catch((caught: Error) => setError(caught.message));
+      setCompanyDate(result.companyDate);
+      setLoaded(true);
+    }).catch((caught: Error) => {
+      setError(caught.message);
+      setLoaded(true);
+    });
   }, []);
 
   async function onSubmit(event: FormEvent) {
@@ -30,11 +37,22 @@ export default function AccountingProfilePage() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not save the profile."); }
   }
 
-  if (!current) return error ? <div className="banner error">{error}</div> : <p>Loading profile…</p>;
+  if (!loaded) return <p>Loading profile…</p>;
+  if (!current) {
+    return (
+      <div>
+        <h1 className="page-title">Country profile</h1>
+        <div className="banner error">{error || `No accounting profile is effective on the company date${companyDate ? ` ${companyDate}` : ""}.`}</div>
+        <div className="card"><strong>History</strong>{history.length ? history.map((row) => <p key={row.id}>{row.effectiveFrom} · {row.countryCode} · {row.complianceStatus}</p>) : <p>No profile rows are stored.</p>}</div>
+      </div>
+    );
+  }
+  const scheduled = companyDate && current.effectiveFrom > companyDate;
   return (
     <form onSubmit={onSubmit}>
       <h1 className="page-title">Country profile</h1>
       <p className="lede">{note}</p>
+      {scheduled ? <p>The company date is {companyDate}. This profile starts on {current.effectiveFrom}, so it is shown as the next profile. Saving it updates that row and does not close a profile that has not started.</p> : null}
       {error ? <div className="banner error">{error}</div> : null}
       {message ? <div className="banner ok">{message}</div> : null}
       <div className="card grid">

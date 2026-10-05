@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { AtlRecordPanel, type AtlRecord } from "@/components/AtlRecord";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api/client";
@@ -64,13 +64,17 @@ export default function CustomersScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState(emptyForm);
   const [atlApplicable, setAtlApplicable] = useState(false);
+  const [atlRecordingAvailable, setAtlRecordingAvailable] = useState(false);
   const [atl, setAtl] = useState<AtlRecord>(null);
   const pakistan = form.taxCountryCode.trim().toUpperCase() === "PK";
 
   async function load() {
-    setRows((await api<{ data: Customer[] }>("/api/v1/customers?pageSize=100")).data);
+    const result = await api<{ data: Customer[]; atlRecordingAvailable: boolean }>("/api/v1/customers?pageSize=100");
+    setRows(result.data);
+    setAtlRecordingAvailable(result.atlRecordingAvailable);
   }
   useEffect(() => { load().catch((caught: Error) => setError(caught.message)); }, []);
 
@@ -105,6 +109,7 @@ export default function CustomersScreen() {
         strn: customer.strn ?? "",
         isActive: customer.isActive,
       });
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not open the customer.");
     }
@@ -158,7 +163,8 @@ export default function CustomersScreen() {
       <h1 className="page-title">Customers</h1>
       <p className="lede">Customer balances are subledger detail. They do not create a second receivable posting. A tax country does not choose a tax rate.</p>
       {error ? <div className="banner error">{error}</div> : null}
-      <form className="card grid" onSubmit={onSubmit}>
+      <form className="card grid" onSubmit={onSubmit} ref={formRef}>
+        <h2>{editingId ? "Edit customer" : "New customer"}</h2>
         <label className="field"><span>Code</span><input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} required /></label>
         <label className="field"><span>Legal name</span><input value={form.legalName} onChange={(event) => setForm({ ...form, legalName: event.target.value })} required /></label>
         <label className="field"><span>Display name</span><input value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} required /></label>
@@ -187,20 +193,26 @@ export default function CustomersScreen() {
           {editingId ? <button className="btn" type="button" onClick={reset}>Cancel</button> : null}
         </div>
       </form>
-      {editingId && atlApplicable && pakistan ? (
-        <AtlRecordPanel record={atl} canRecord={can(auth.user, "customers.record_atl")} onSave={saveAtl} />
+      {atlRecordingAvailable && pakistan ? (
+        <AtlRecordPanel
+          record={editingId ? atl : null}
+          canRecord={Boolean(editingId && atlApplicable && can(auth.user, "customers.record_atl"))}
+          unavailableReason={!editingId ? "Save the customer first. Add customer does not store ATL." : !atlApplicable ? "Save the customer with tax country PK before recording ATL. The customer form does not store ATL." : undefined}
+          onSave={saveAtl}
+        />
       ) : null}
       {editingId && atl && !(atlApplicable && pakistan) ? (
         <p>The stored ATL record is kept. It is hidden because ATL applies only when the company country and this tax country are both Pakistan. Saving the customer does not delete it.</p>
       ) : null}
       <div className="card">
         <table>
-          <thead><tr><th>Code</th><th>Name</th><th>Tax country</th><th>CNIC/NTN</th><th>Terms</th><th>Credit limit</th><th>Status</th></tr></thead>
+          <thead><tr><th>Code</th><th>Name</th><th>Tax country</th><th>CNIC/NTN</th><th>Terms</th><th>Credit limit</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} onClick={() => edit(row.id)}>
+              <tr key={row.id}>
                 <td>{row.code}</td><td>{row.displayName}</td><td>{row.taxCountryCode ?? ""}</td><td>{row.cnicNtnDisplay ?? ""}</td>
                 <td>{row.paymentTermsDays}</td><td>{row.creditLimit ?? "No limit"}</td><td>{row.isActive ? "Active" : "Inactive"}</td>
+                <td><button className="btn quiet" type="button" onClick={() => edit(row.id)}>Edit</button></td>
               </tr>
             ))}
           </tbody>

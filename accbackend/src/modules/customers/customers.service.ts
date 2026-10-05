@@ -46,7 +46,7 @@ export async function listCustomers(page: Page, filters: { search?: string; acti
   params.push(page.pageSize, page.offset);
   const rows = await selectCustomers({ query }, clause, params);
   const country = await installationCountry({ query });
-  return pageResult(rows.rows.map((row) => mapCustomer(row, country)), total, page);
+  return { ...pageResult(rows.rows.map((row) => mapCustomer(row, country)), total, page), atlRecordingAvailable: atlRecordingApplies(country, "PK") };
 }
 
 export async function getCustomer(id: string) {

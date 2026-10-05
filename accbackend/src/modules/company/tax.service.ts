@@ -15,6 +15,7 @@ import {
   listProfiles,
   listTaxRows,
   lockCurrentProfile,
+  lockUpcomingProfile,
   lockTax,
   retireTax,
   updateProfile,
@@ -98,9 +99,14 @@ export async function retireTaxCode(id: string, effectiveTo: string, meta: Reque
 export async function getAccountingProfile() {
   const rows = await listProfiles({ query });
   const history = rows.rows.map(mapProfile);
-  const today = await companyToday();
-  const current = history.find((row) => row.isActive && row.effectiveFrom <= today && (!row.effectiveTo || row.effectiveTo >= today)) ?? null;
-  return { current, history, complianceNote: "Country tax and statutory rules stay unverified until a reviewer marks them reviewed for a named country." };
+  const companyDate = await companyToday();
+  const current = selectVisibleProfile(history, companyDate);
+  return {
+    current,
+    history,
+    companyDate,
+    complianceNote: "Country tax and statutory rules stay unverified until a reviewer marks them reviewed for a named country.",
+  };
 }
 
 export async function updateAccountingProfile(
@@ -109,12 +115,13 @@ export async function updateAccountingProfile(
 ) {
   return withTransaction(async (client) => {
     const today = await companyToday(client);
-    const currentRow = (await lockCurrentProfile(client, today)).rows[0];
-    if (!currentRow) throw new AppError(409, "PROFILE_MISSING", "Run the database seed before editing the accounting profile.");
+    const currentRow = (await lockCurrentProfile(client, today)).rows[0] ?? (await lockUpcomingProfile(client, today)).rows[0];
+    if (!currentRow) throw new AppError(409, "PROFILE_MISSING", "No accounting profile is stored. The page cannot save a country until a profile row exists.");
     const before = mapProfile(currentRow);
     const materialChange = before.countryCode !== input.countryCode.toUpperCase() || before.complianceStatus !== input.complianceStatus;
+    const notYetEffective = before.effectiveFrom > today;
     let after;
-    if (!materialChange || before.effectiveFrom === today) {
+    if (!materialChange || before.effectiveFrom === today || notYetEffective) {
       after = mapProfile(
         one((await updateProfile(client, before.id, [input.countryCode.toUpperCase(), input.name.trim(), input.complianceStatus, blank(input.notes)])).rows),
       );
@@ -206,6 +213,14 @@ function mapTax(row: {
     effectiveTo: row.effective_to,
     isActive: row.is_active,
   };
+}
+
+export function selectVisibleProfile<T extends { isActive: boolean; effectiveFrom: string; effectiveTo: string | null }>(history: T[], companyDate: string) {
+  const covering = history.find((row) => row.isActive && row.effectiveFrom <= companyDate && (!row.effectiveTo || row.effectiveTo >= companyDate));
+  if (covering) return covering;
+  return history
+    .filter((row) => row.isActive && row.effectiveFrom > companyDate && (!row.effectiveTo || row.effectiveTo >= row.effectiveFrom))
+    .sort((left, right) => left.effectiveFrom < right.effectiveFrom ? -1 : 1)[0] ?? null;
 }
 
 function mapProfile(row: {
